@@ -25,6 +25,6 @@
         "esbuild": "^0.27.2",
         "msw": "^2.12.14",
         "ts-node": "^10.9.2",
-        "typescript": "^5.9.3"
+        "typescript": "^6.0.2"
     }
 }
