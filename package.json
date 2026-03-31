@@ -17,7 +17,7 @@
         "postinstall": "node postinstall.js"
     },
     "dependencies": {
-        "bongbot-core": "github:Mirasii/BongBot-Core#main"
+        "bongbot-core": "github:PookieSoft/BongBot-Core#main"
     },
     "devDependencies": {
         "cross-env": "^10.1.0",
