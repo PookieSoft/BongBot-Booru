@@ -1,0 +1,142 @@
+# .github/workflows/docker-vuln-pr.yml
+name: Docker Vulnerability PR
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 9 * * 6'  # Every Saturday at 9 AM UTC
+  workflow_dispatch:
+
+jobs:
+  # Runs on every push to main — snapshots the current CVE set as the new baseline
+  update-baseline:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bongbot-booru:latest
+          format: json
+          output: trivy-results.json
+          exit-code: '0'
+
+      - name: Update vulnerability baseline branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq '[.Results[]?.Vulnerabilities[]? | {id: .VulnerabilityID, severity: .Severity, pkg: .PkgName}] | sort_by(.id) | unique_by(.id)' \
+            trivy-results.json > /tmp/baseline-cves.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+
+          if git ls-remote --exit-code --heads origin vuln-baseline; then
+            git checkout vuln-baseline
+          else
+            git checkout --orphan vuln-baseline
+            git rm -rf . --ignore-unmatch
+          fi
+
+          cp /tmp/baseline-cves.json baseline-cves.json
+          git add baseline-cves.json
+          # Exit cleanly if nothing changed
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: update vulnerability baseline [skip ci]"
+          git push origin vuln-baseline
+
+  # Runs every Saturday — diffs current image against baseline, opens a PR if new CVEs found
+  check-new-vulns:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bongbot-booru:latest
+          format: json
+          output: trivy-current.json
+          exit-code: '0'
+
+      - name: Detect new vulnerabilities since last push
+        id: diff
+        run: |
+          jq '[.Results[]?.Vulnerabilities[]? | {id: .VulnerabilityID, severity: .Severity, pkg: .PkgName}] | sort_by(.id) | unique_by(.id)' \
+            trivy-current.json > current-cves.json
+
+          git fetch origin
+          if git ls-remote --exit-code --heads origin vuln-baseline; then
+            git checkout origin/vuln-baseline -- baseline-cves.json
+          else
+            echo '[]' > baseline-cves.json
+          fi
+
+          jq -n \
+            --slurpfile current current-cves.json \
+            --slurpfile baseline baseline-cves.json \
+            '$baseline[0] | map(.id) as $known |
+             $current[0] | map(select(.id as $id | $known | any(. == $id) | not))' \
+            > new-cves.json
+
+          NEW_COUNT=$(jq length new-cves.json)
+          echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "has_new=$([ "$NEW_COUNT" -gt 0 ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Create PR for new vulnerabilities
+        if: steps.diff.outputs.has_new == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="docker-vuln-$(date +%Y%m%d)"
+
+          if git ls-remote --exit-code --heads origin "$BRANCH"; then
+            echo "Branch $BRANCH already exists — PR was likely already created this week, skipping."
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH"
+          git commit --allow-empty -m "chore: new Docker vulnerabilities detected — review required"
+          git push origin "$BRANCH"
+
+          CVE_LIST=$(jq -r '.[] | "- **\(.severity)**: `\(.id)` in `\(.pkg)`"' new-cves.json)
+
+          gh pr create \
+            --title "chore: new Docker vulnerabilities detected ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## New Docker Vulnerabilities Detected
+
+          Trivy found **${{ steps.diff.outputs.new_count }}** new vulnerabilities in \`bongbot-booru:latest\` that were not present at the last commit push.
+
+          ### New CVEs
+          ${CVE_LIST}
+
+          ### Next Steps
+          Review the CVEs above and update the Docker base image or affected dependencies as needed. Merging this PR will reset the baseline to the current vulnerability set.
+
+          ---
+          > Automatically created by the weekly Docker vulnerability check.
+          EOF
+          )" \
+            --head "$BRANCH" \
+            --base main

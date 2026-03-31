@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2024", "DOM"],
+    "declaration": true,
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": true,
+    "rootDir": "./src",
+    "types": ["jest", "node"],
+    "paths": {
+      "bongbot-core": ["./node_modules/bongbot-core/dist/index"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

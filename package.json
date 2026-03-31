@@ -1,0 +1,30 @@
+{
+    "name": "bongbot-booru",
+    "version": "0.1.0",
+    "description": "BongBot Booru Image Board Integration",
+    "main": "./dist/index.js",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "node esbuild.config.mjs --minify",
+        "build-dev": "docker build -f ./Dockerfile --build-arg CORE_SOURCE=file:/core .. -t bongbot-booru && docker run --rm --env-file .env --volume ./data:/app/data --volume ./logs:/app/logs bongbot-booru",
+        "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --json --coverage --outputFile=report.json --passWithNoTests --silent",
+        "postinstall": "node postinstall.js"
+    },
+    "dependencies": {
+        "bongbot-core": "github:Mirasii/BongBot-Core#main"
+    },
+    "devDependencies": {
+        "cross-env": "^10.1.0",
+        "discord.js": "^14.25.1",
+        "esbuild": "^0.27.2",
+        "msw": "^2.12.14",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    }
+}
