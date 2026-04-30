@@ -24,6 +24,7 @@
         "discord.js": "^14.25.1",
         "esbuild": "^0.27.2",
         "msw": "^2.12.14",
+        "prettier": "^3.8.3",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3"
     }
