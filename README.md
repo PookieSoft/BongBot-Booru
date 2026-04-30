@@ -19,47 +19,54 @@ BongBot-Booru is a microservice in the BongBot ecosystem, providing Booru image 
 ### Running the Bot
 
 1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Mirasii/BongBot-Booru.git
-   cd BongBot-Booru
-   ```
+
+    ```bash
+    git clone https://github.com/Mirasii/BongBot-Booru.git
+    cd BongBot-Booru
+    ```
 
 2. **Configure environment variables**:
    Copy the example environment file and update it with your credentials:
-   ```bash
-   cp .env.example .env
-   ```
 
-   Edit `.env` and add your Discord bot token and other API keys:
-   ```env
-   DISCORD_API_KEY=your_discord_bot_token_here
-   DISCORD_CHANNEL_ID=your_channel_id_here
-   ```
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` and add your Discord bot token and other API keys:
+
+    ```env
+    DISCORD_API_KEY=your_discord_bot_token_here
+    DISCORD_CHANNEL_ID=your_channel_id_here
+    ```
 
 3. **Run with Docker**:
-   ```bash
-   # Build and run the container
-   docker build . -t bongbot-booru
-   docker run --env-file .env bongbot-booru
-   ```
 
-   Or use the pre-built image:
-   ```bash
-   # Dev Build
-   docker run --env-file .env mirasi/bongbot-booru-develop:latest
-   ```
-   ```bash
-   # Release Build
-   docker run --env-file .env mirasi/bongbot-booru:latest
-   ```
-   **It is recommended you use docker for local development.**
+    ```bash
+    # Build and run the container
+    docker build . -t bongbot-booru
+    docker run --env-file .env bongbot-booru
+    ```
+
+    Or use the pre-built image:
+
+    ```bash
+    # Dev Build
+    docker run --env-file .env mirasi/bongbot-booru-develop:latest
+    ```
+
+    ```bash
+    # Release Build
+    docker run --env-file .env mirasi/bongbot-booru:latest
+    ```
+
+    **It is recommended you use docker for local development.**
 
 ## Environment Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DISCORD_API_KEY` | ✅ | Your Discord bot token |
-| `DISCORD_CHANNEL_ID` | ❌ | Default channel ID for info card on bot launch |
+| Variable             | Required | Description                                    |
+| -------------------- | -------- | ---------------------------------------------- |
+| `DISCORD_API_KEY`    | ✅       | Your Discord bot token                         |
+| `DISCORD_CHANNEL_ID` | ❌       | Default channel ID for info card on bot launch |
 
 ## Contributing
 

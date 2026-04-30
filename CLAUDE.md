@@ -3,14 +3,17 @@
 # Project: BongBot-Booru
 
 ## Project Description
+
 A Discord Bot built on NodeJS in TypeScript for Booru image board integration. Shared infrastructure (helpers, loggers, config, responses) lives in the `bongbot-core` package.
 
 ## Tech Stack:
+
 - Bot: TypeScript
 - Testing: jest, ts-jest
 - Core Library: bongbot-core
 
 ## Code Conventions
+
 - 4-space indentation
 - PascalCase for class declarations
 - snake_case preferred for file names and bot input variables
@@ -25,6 +28,7 @@ A Discord Bot built on NodeJS in TypeScript for Booru image board integration. S
     - interface declarations
 
 ## Project Structure
+
 - /src - Main source code
     - /commands - Slash commands
     - /helpers - Booru-specific helpers
@@ -33,7 +37,9 @@ A Discord Bot built on NodeJS in TypeScript for Booru image board integration. S
 - data - Data files (data folder is in gitignore and shouldn't be committed)
 
 ## Shared Code (bongbot-core)
+
 The following are imported from `bongbot-core` and should NOT be duplicated locally:
+
 - `Caller` - HTTP client wrapper with SSRF protection
 - `buildError`, `buildUnknownError` - Standardized error response formatting
 - `EMBED_BUILDER` - Discord embed construction utilities
@@ -43,6 +49,7 @@ The following are imported from `bongbot-core` and should NOT be duplicated loca
 - `ExtendedClient`, `Logger` - TypeScript interfaces
 
 ## Important Notes
+
 - API calls should use `Caller` from `bongbot-core`
 - New components should have an accompanying test file and aim for 100% coverage
 - Dependency Injection should be used to reduce individual complexity
@@ -73,6 +80,7 @@ NODE_OPTIONS=--experimental-vm-modules npx jest --testNamePattern="should return
 ### Entry Point and Bot Lifecycle
 
 `src/index.ts` bootstraps the bot:
+
 1. Validates required config via `validateRequiredConfig()`
 2. Initializes logging with a session UUID
 3. Builds commands via `buildCommands()` which populates `bot.commands` Collection
@@ -82,11 +90,13 @@ NODE_OPTIONS=--experimental-vm-modules npx jest --testNamePattern="should return
 ### Command Structure
 
 Commands follow a consistent pattern with required exports:
+
 - `data`: SlashCommandBuilder definition
 - `execute(interaction, bot)`: Main handler for slash commands
 - `fullDesc`: Object with `description` and `options` for the help command
 
 Optional command methods:
+
 - `setupCollector(interaction, message)`: For commands needing button/select menu collectors
 
 Commands are registered in `src/commands/buildCommands.ts` - add new commands to the `commandsArray`.
@@ -94,14 +104,16 @@ Commands are registered in `src/commands/buildCommands.ts` - add new commands to
 ### Subcommand Pattern
 
 Complex features use a master command with subcommands:
+
 - Master file defines the SlashCommandBuilder with `.addSubcommand()`
 - Each subcommand is a separate class in its own file
 - Master's `execute()` routes to subcommand handlers via switch statement
-This is the standard structure for when multiple commands interact with a system.
+  This is the standard structure for when multiple commands interact with a system.
 
 ### Testing Setup
 
 Tests use Jest with ESM support and MSW for HTTP mocking:
+
 - `tests/setup.ts`: Global MSW server lifecycle (listen/reset/close)
 - `tests/mocks/server.ts`: MSW server instance
 - `tests/mocks/handlers.ts`: Default HTTP handlers
