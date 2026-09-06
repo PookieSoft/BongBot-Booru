@@ -1,5 +1,5 @@
 [Unit]
-Description=BongBot Ptero Develop Service for branch %i (auto-stops after 1 hour)
+Description=BongBot Booru Develop Service for branch %i (auto-stops after 1 hour)
 After=docker.service
 Requires=docker.service
 

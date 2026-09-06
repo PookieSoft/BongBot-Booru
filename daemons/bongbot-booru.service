@@ -1,5 +1,5 @@
 [Unit]
-Description=BongBot Ptero Service
+Description=BongBot Booru Service
 After=docker.service
 Requires=docker.service
 
