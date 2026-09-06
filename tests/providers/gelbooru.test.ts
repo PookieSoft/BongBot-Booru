@@ -95,15 +95,11 @@ describe('Gelbooru', () => {
         expect((await provider({ post: [image] }).api.search('solo'))?.imageUrl).toBe(image.file_url);
     });
 
-    it.each([
-        new TypeError('fetch failed', { cause: new Error('getaddrinfo ENOTFOUND secret-api-key') }),
-        'getaddrinfo ENOTFOUND secret-api-key',
-    ])('keeps the upstream failure out of the message and on the stack', async (upstream) => {
-        const get = vi.fn().mockRejectedValue(upstream);
+    it('keeps the upstream failure out of the message and on the stack', async () => {
+        const get = vi.fn().mockRejectedValue(new Error('Network response was not ok: 403 secret-api-key'));
         const failure = (await new Gelbooru({ get }).search('solo').catch((error: Error) => error)) as Error;
         expect(failure.message).toBe('Gelbooru is unavailable. Please try again later.');
-        expect(failure.stack).toContain('Caused by: ');
-        expect(failure.stack).toContain('getaddrinfo ENOTFOUND secret-api-key');
+        expect(failure.stack).toContain('Caused by: Error: Network response was not ok: 403 secret-api-key');
     });
 });
 

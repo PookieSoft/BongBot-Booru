@@ -1,4 +1,5 @@
 import type { BinaryResponse, Caller } from '@pookiesoft/bongbot-core';
+import { userFacingError } from './user_facing_error.js';
 import type { ImageSite } from '../providers/image_provider.js';
 
 const IMAGE_HEADERS = {
@@ -13,9 +14,9 @@ export class HttpImageDownloader {
         let response: BinaryResponse | null;
         try {
             response = await this.caller.get(imageUrl, null, null, { ...IMAGE_HEADERS, Referer: site.referer }, 'binary');
-        } catch {
+        } catch (error) {
             // Core reports the status alongside the full image URL, which does not belong in a Discord reply.
-            throw new Error(`${site.name} could not deliver the image. Please try again later.`);
+            throw userFacingError(`${site.name} could not deliver the image. Please try again later.`, error);
         }
         if (!response) throw new Error('Image server returned an empty response.');
         if (!response.contentType?.startsWith('image/')) {

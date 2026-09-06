@@ -51,10 +51,13 @@ it.each([
 });
 
 it('does not leak the image URL when Core reports a failure', async () => {
-    const get = vi.fn().mockRejectedValue(new Error(`Network response was not ok: 502 Bad Gateway ${imageUrl}`));
-    await expect(new HttpImageDownloader({ get }).download(imageUrl, site)).rejects.toThrow(
-        'Gelbooru could not deliver the image. Please try again later.'
-    );
+    const upstream = new Error(`Network response was not ok: 502 Bad Gateway ${imageUrl}`);
+    const get = vi.fn().mockRejectedValue(upstream);
+    const failure = (await new HttpImageDownloader({ get })
+        .download(imageUrl, site)
+        .catch((error: Error) => error)) as Error;
+    expect(failure.message).toBe('Gelbooru could not deliver the image. Please try again later.');
+    expect(failure.stack).toContain(`Caused by: Error: ${upstream.message}`);
 });
 
 it('rejects an empty download', async () => {
