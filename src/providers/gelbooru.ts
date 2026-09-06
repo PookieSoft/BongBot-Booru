@@ -36,11 +36,7 @@ export class Gelbooru implements ImageProvider {
             params.set('user_id', this.options.userId);
         }
         let response: unknown;
-        try {
-            response = await this.caller.get(endpoint, '/index.php', params.toString());
-        } catch {
-            throw new Error('Gelbooru is unavailable. Please try again later.');
-        }
+        response = await this.caller.get(endpoint, '/index.php', params.toString());
         if (!isRecord(response)) throw new Error('Gelbooru returned an invalid response.');
         const posts = response.post;
         if (posts === undefined && isRecord(response['@attributes']) && Number(response['@attributes'].count) === 0) {
