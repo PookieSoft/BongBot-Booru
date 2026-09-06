@@ -63,11 +63,11 @@ The build reads the registry token through a BuildKit secret. The runtime image 
 
 ## Tests and dependencies
 
-`npm test` runs Vitest once with V8 coverage and requires 100% statements, branches, functions, and lines in application source. Reports include `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml` for the shared workflows. Use `npm run test:watch` during development, or `npm test -- tests/providers/gelbooru.test.ts` to select a file. Coverage thresholds still apply when selecting tests.
+`npm test` runs Vitest once with V8 coverage and requires 100% statements, branches, functions, and lines in executable application source. Runtime coverage excludes `src/index.ts` (re-exports) and `src/providers/image_provider.ts` (interfaces), which have no executable statements. TypeScript checks both files, and command tests import through the public index. Reports include `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml` for the shared workflows. Use `npm run test:watch` during development, or `npm test -- tests/providers/gelbooru.test.ts` to select a file. Coverage thresholds still apply when selecting tests.
 
 Vitest replaces the incomplete Jest/ts-jest scaffold. It transforms TypeScript without relying on ts-jest's TypeScript compatibility range and supports ESM and Jest-style assertions. It does not type-check the application; `npm run typecheck` does that separately. The build also emits declarations through TypeScript. See the [Vitest guide](https://vitest.dev/guide/).
 
-Tests inject the provider's HTTP boundary and random number generator, exercise malformed responses and unsuitable results, and verify command routing and startup delegation without logging in to Discord. Shared Core behavior belongs to Core's own tests.
+Tests inject the provider's HTTP boundary and random number generator, exercise malformed responses and unsuitable results, and verify command routing and startup delegation without logging in to Discord. Shared Core behavior, including HTTP transport and JSON parsing in `Caller`, belongs to Core's own tests.
 
 Runtime dependencies are BongBot-Core and Discord.js. Development dependencies provide TypeScript compilation, esbuild bundling, and Vitest coverage. Query encoding uses `URLSearchParams`; simple validation and random selection use standard JavaScript.
 
