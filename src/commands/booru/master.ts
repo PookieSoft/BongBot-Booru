@@ -1,4 +1,4 @@
-import type { ExtendedClient } from '@pookiesoft/bongbot-core';
+import type { Caller, ExtendedClient } from '@pookiesoft/bongbot-core';
 import { SlashCommandBuilder } from 'discord.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import type { ImageProvider } from '../../providers/image_provider.js';
@@ -27,8 +27,8 @@ export class Booru {
     };
     private readonly search: Search;
 
-    constructor(provider: ImageProvider) {
-        this.search = new Search(provider);
+    constructor(provider: ImageProvider, caller?: Pick<Caller, 'get'>) {
+        this.search = new Search(provider, caller);
     }
 
     async execute(interaction: ChatInputCommandInteraction, bot: ExtendedClient) {

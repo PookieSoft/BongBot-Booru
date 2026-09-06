@@ -5,5 +5,11 @@ export interface ImagePost {
 }
 
 export interface ImageProvider {
+    readonly site: ImageSite;
     search(tags: string): Promise<ImagePost | null>;
+}
+
+export interface ImageSite {
+    name: string;
+    referer: string;
 }

@@ -11,6 +11,10 @@ function provider(response: unknown, credentials: Record<string, boolean | strin
 }
 
 describe('Gelbooru', () => {
+    it('exposes the site name and referer', () => {
+        expect(provider({ post: [] }).api.site).toEqual({ name: 'Gelbooru', referer: 'https://gelbooru.com/' });
+    });
+
     it('excludes AI-tagged posts by default', async () => {
         const { api, get } = provider({ post: [] }, { allowAiImages: false });
         await api.search('solo');

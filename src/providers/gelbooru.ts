@@ -1,9 +1,11 @@
 import type { Caller } from '@pookiesoft/bongbot-core';
-import type { ImagePost, ImageProvider } from './image_provider.js';
+import type { ImagePost, ImageProvider, ImageSite } from './image_provider.js';
 
 const endpoint = 'https://gelbooru.com';
 
 export class Gelbooru implements ImageProvider {
+    readonly site: ImageSite = { name: 'Gelbooru', referer: `${endpoint}/` };
+
     constructor(
         private readonly caller: Pick<Caller, 'get'>,
         private readonly options: GelbooruOptions = {},
@@ -72,9 +74,14 @@ function isImage(value: unknown): value is GelbooruPost {
 function isImageUrl(value: string): boolean {
     try {
         const url = new URL(value);
-        return url.protocol === 'https:' && !url.username && !url.password && !url.port &&
+        return (
+            url.protocol === 'https:' &&
+            !url.username &&
+            !url.password &&
+            !url.port &&
             (url.hostname === 'gelbooru.com' || url.hostname.endsWith('.gelbooru.com')) &&
-            /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname);
+            /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname)
+        );
     } catch {
         return false;
     }
