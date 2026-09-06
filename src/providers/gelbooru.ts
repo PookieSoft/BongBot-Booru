@@ -58,6 +58,25 @@ export class Gelbooru implements ImageProvider {
     }
 }
 
+export function createGelbooru(caller: Pick<Caller, 'get'>, env: NodeJS.ProcessEnv, allowAiImages: boolean): Gelbooru {
+    const apiKey = env.GELBOORU_API_KEY?.trim();
+    const userId = env.GELBOORU_USER_ID?.trim();
+    if (Boolean(apiKey) !== Boolean(userId)) {
+        throw new Error('Set GELBOORU_API_KEY and GELBOORU_USER_ID together.');
+    }
+    if (userId && !/^[1-9]\d*$/.test(userId)) {
+        throw new Error('GELBOORU_USER_ID must be a positive integer.');
+    }
+    return new Gelbooru(caller, {
+        apiKey,
+        userId,
+        allowAiImages,
+        // Off for the exact word false and nothing else, so a typo leaves the filter on.
+        // ALLOW_AI_IMAGES compares the opposite way for the same reason; see config.ts.
+        sfw: env.GELBOORU_SFW?.trim().toLowerCase() !== 'false',
+    });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

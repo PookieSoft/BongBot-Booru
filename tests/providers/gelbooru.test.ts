@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Caller } from '@pookiesoft/bongbot-core';
-import { Gelbooru } from '../../src/providers/gelbooru.js';
+import { Gelbooru, createGelbooru } from '../../src/providers/gelbooru.js';
 import type { GelbooruOptions } from '../../src/providers/gelbooru.js';
 
 const post = { id: 42, rating: 'general', file_url: 'https://img3.gelbooru.com/images/example.png' };
@@ -116,3 +116,50 @@ it.each([
     await expect(provider({ post: [invalid] }, { sfw: false }).api.search('solo')).resolves.toBeNull();
 });
 
+
+describe('createGelbooru', () => {
+    function build(env: NodeJS.ProcessEnv, allowAiImages = true, response: unknown = { post: [] }) {
+        const get = vi.fn().mockResolvedValue(response);
+        return { api: createGelbooru({ get }, env, allowAiImages), get };
+    }
+
+    it('builds a provider without credentials', () => {
+        expect(build({}).api).toBeInstanceOf(Gelbooru);
+    });
+
+    it('trims and sends paired credentials', async () => {
+        const { api, get } = build({ GELBOORU_API_KEY: ' key ', GELBOORU_USER_ID: ' 42 ' });
+        await api.search('solo');
+        const params = new URLSearchParams(get.mock.calls[0][2]);
+        expect([params.get('api_key'), params.get('user_id')]).toEqual(['key', '42']);
+    });
+
+    it.each([{ GELBOORU_API_KEY: 'key' }, { GELBOORU_USER_ID: '42' }])('requires paired credentials', (env) => {
+        expect(() => build(env)).toThrow('together');
+    });
+
+    it.each(['abc', '0', '-1', '1.5'])('rejects the invalid user ID %s', (id) => {
+        expect(() => build({ GELBOORU_API_KEY: 'key', GELBOORU_USER_ID: id })).toThrow('positive integer');
+    });
+
+    it.each([undefined, '', 'true', ' TRUE ', 'false', ' FALSE '])('applies GELBOORU_SFW=%s to requests and returned ratings', async (setting) => {
+        const explicit = { post: [{ id: 1, rating: 'explicit', file_url: 'https://img3.gelbooru.com/image.png' }] };
+        const { api, get } = build({ GELBOORU_SFW: setting }, true, explicit);
+        const result = await api.search('solo');
+        const disabled = setting?.trim().toLowerCase() === 'false';
+        expect(new URLSearchParams(get.mock.calls[0][2]).get('tags')).toBe(disabled ? 'solo' : 'solo rating:general');
+        expect(result?.id ?? null).toBe(disabled ? 1 : null);
+    });
+
+    it.each(['no', 'flase'])('keeps SFW mode on for the unrecognised value %s', async (setting) => {
+        const { api, get } = build({ GELBOORU_SFW: setting });
+        await api.search('solo');
+        expect(new URLSearchParams(get.mock.calls[0][2]).get('tags')).toContain('rating:general');
+    });
+
+    it('passes the AI policy down from its caller', async () => {
+        const { api, get } = build({}, false);
+        await api.search('solo');
+        expect(new URLSearchParams(get.mock.calls[0][2]).get('tags')).toContain('-ai-generated');
+    });
+});
