@@ -36,7 +36,14 @@ export class Gelbooru implements ImageProvider {
             params.set('user_id', this.options.userId);
         }
         let response: unknown;
-        response = await this.caller.get(endpoint, '/index.php', params.toString());
+        try {
+            response = await this.caller.get(endpoint, '/index.php', params.toString());
+        } catch (error) {
+            // Only the message reaches the embed, so the upstream status and body ride on the stack, which only the log reads.
+            const failure = new Error('Gelbooru is unavailable. Please try again later.');
+            failure.stack = `${failure.stack}\nCaused by: ${error instanceof Error ? error.stack : error}`;
+            throw failure;
+        }
         if (!isRecord(response)) throw new Error('Gelbooru returned an invalid response.');
         const posts = response.post;
         if (posts === undefined && isRecord(response['@attributes']) && Number(response['@attributes'].count) === 0) {

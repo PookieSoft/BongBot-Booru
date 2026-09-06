@@ -95,10 +95,16 @@ describe('Gelbooru', () => {
         expect((await provider({ post: [image] }).api.search('solo'))?.imageUrl).toBe(image.file_url);
     });
 
-    it('does not expose upstream errors or credentials', async () => {
-        const get = vi.fn().mockRejectedValue(new Error('URL includes secret-api-key'));
-        await expect(new Gelbooru({ get }).search('solo')).rejects.toThrow('Gelbooru is unavailable. Please try again later.');
-    });
+    it.each([new Error('URL includes secret-api-key'), 'URL includes secret-api-key'])(
+        'keeps the upstream failure %s out of the message and on the stack',
+        async (upstream) => {
+            const get = vi.fn().mockRejectedValue(upstream);
+            const failure = (await new Gelbooru({ get }).search('solo').catch((error: Error) => error)) as Error;
+            expect(failure.message).toBe('Gelbooru is unavailable. Please try again later.');
+            expect(failure.stack).toContain('Caused by: ');
+            expect(failure.stack).toContain('secret-api-key');
+        }
+    );
 });
 
 
