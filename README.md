@@ -10,17 +10,19 @@ A standalone Discord bot that searches Gelbooru, replacing BongBot's Google imag
 | `/fox` | Shirakami Fubuki (`shirakami_fubuki`) |
 | `/booru search tags:shirakami_fubuki solo` | Space-separated Gelbooru tags |
 
-SFW mode is enabled by default. `GELBOORU_SFW=true` requests `rating:general` and rejects posts whose returned rating is anything else. Unset or blank values also enable SFW mode. Set `GELBOORU_SFW=false` and restart the bot to allow all four ratings, including explicit content, across all commands. This setting applies to the whole bot, not individual Discord channels. Invalid values stop startup.
+The bot defaults to SFW searches. With `GELBOORU_SFW=true`, it requests `rating:general` and checks that each returned post has that rating. Leaving the variable unset or blank also enables SFW mode.
 
-Tags support underscores, parentheses, wildcards, and a leading minus for exclusions. Rating overrides and other search operators are rejected. Only HTTPS image URLs hosted by Gelbooru are embedded; videos are skipped.
+To allow all four ratings, including explicit content, set `GELBOORU_SFW=false` and restart the bot. The setting applies to every command and channel. The bot refuses to start if the value is invalid.
 
-[Gelbooru's rating guide](https://gelbooru.com/index.php?page=wiki&s=view&id=2535) defines General as SFW; Sensitive, Questionable, and Explicit are excluded in SFW mode. Ratings depend on correct tagging and do not guarantee that an image is suitable for every audience.
+Tags support underscores, parentheses, wildcards, and a leading minus to exclude a tag. The bot rejects rating overrides and other search operators. It embeds only HTTPS image URLs hosted by Gelbooru and skips videos.
 
-Each request chooses a random eligible image from the first 100 matching posts. This is not a uniform sample of the whole board. Empty results and upstream failures produce a response instead of an empty embed.
+[Gelbooru's rating guide](https://gelbooru.com/index.php?page=wiki&s=view&id=2535) defines General as SFW. SFW mode excludes Sensitive, Questionable, and Explicit posts. Ratings depend on correct tagging, so they cannot guarantee that every image suits every audience.
+
+For each request, the bot picks a random eligible image from the first 100 matching posts. Images elsewhere on the board are outside that sample. If no images match or Gelbooru fails to respond, the bot returns a message explaining the problem.
 
 ## Setup
 
-Use Node.js 24 or later. The `.npmrc` configuration matches BongBot-Quote and BongBot-Ptero: the `@pookiesoft` scope uses GitHub Packages and reads authentication from `NODE_AUTH_TOKEN`. Export `NODE_AUTH_TOKEN` with `read:packages` access to BongBot-Core in the shell; do not commit it.
+Use Node.js 24 or later. As in BongBot-Quote and BongBot-Ptero, `.npmrc` directs the `@pookiesoft` scope to GitHub Packages and reads its token from `NODE_AUTH_TOKEN`. Export that variable in your shell with a token that has `read:packages` access to BongBot-Core. Keep the token out of Git.
 
 ```sh
 npm ci
@@ -40,9 +42,11 @@ node --env-file=.env --enable-source-maps dist/standalone.js
 | `GELBOORU_USER_ID` | Optional positive numeric Gelbooru user ID; must be paired with API key |
 | `NODE_AUTH_TOKEN` | GitHub Packages token used during installation and Docker builds |
 
-[Gelbooru's API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780) says authentication may be required and requests may be throttled. Account options provide the API key and user ID.
+Gelbooru may require authentication or throttle requests, according to its [API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780). You can find your API key and user ID in your account options.
 
-Invite the bot with the `bot` and `applications.commands` scopes and grant View Channel, Send Messages, Embed Links, and Attach Files. Core's shared startup currently requests the Message Content gateway intent; enable it in the Discord developer portal. Core registers global slash commands and optionally posts its deployment card. Use a separate bot application from the main BongBot because registration replaces that application's command list.
+Invite the bot with the `bot` and `applications.commands` scopes. Grant it View Channel, Send Messages, Embed Links, and Attach Files. Enable the Message Content gateway intent in the Discord developer portal, since Core's shared startup requests it.
+
+Core registers global slash commands and can post a deployment card. Use a separate bot application from the main BongBot: registration replaces the application's command list.
 
 ## Docker
 
@@ -51,25 +55,29 @@ docker build --secret id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN -t bongbot-booru .
 docker run --rm --env-file .env --volume ./logs:/app/logs bongbot-booru
 ```
 
-The build reads the registry token through a BuildKit secret. The runtime image runs as the `node` user; a mounted logs directory must be writable by that user. `npm run dev` builds and runs the same container. Docker is required for that command.
+The build reads the registry token through a BuildKit secret. The container runs as the `node` user, which needs write access to the mounted logs directory. With Docker installed, `npm run dev` builds and runs the same container.
 
 ## Structure
 
-`src/index.ts` exports the commands and provider interface for composite bots. `src/standalone.ts` starts this bot through BongBot-Core's `basicStart`, as the sibling microservices do. Core owns configuration validation, logging, Discord interaction handling, and startup cards. Commands return payloads to Core instead of acknowledging interactions themselves.
+`src/index.ts` exports the commands and provider interface for composite bots. `src/standalone.ts` starts the bot through BongBot-Core's `basicStart`, following the sibling microservices. Core validates its configuration, handles logging and Discord interactions, and builds startup cards. Commands return response payloads for Core to send; Core also acknowledges the interactions.
 
 `src/commands/buildCommands.ts` registers the commands through Core's `commandBuilder`. The `/booru` master routes to its search subcommand. Both character commands share `ImageCommand`.
 
-`src/providers/gelbooru.ts` receives Core's `Caller` through dependency injection. The pinned published Core 1.6.50 exposes a zero-argument `Caller` constructor. All Gelbooru requests use that client and a fixed API endpoint. The bot does not accept server URLs. To use another board, implement `ImageProvider` and pass it to `buildCommands`. No database or additional HTTP client is needed.
+`src/providers/gelbooru.ts` takes Core's `Caller` as a constructor argument. In the pinned Core package, version 1.6.50, `Caller` itself takes no constructor arguments. Every Gelbooru request uses this client and a fixed API endpoint; users cannot supply server URLs.
+
+To use another board, implement `ImageProvider` and pass it to `buildCommands`. The image search code needs no database or additional HTTP client.
 
 ## Tests and dependencies
 
-`npm test` runs Vitest once with V8 coverage and requires 100% statements, branches, functions, and lines in executable application source. Runtime coverage excludes `src/index.ts` (re-exports) and `src/providers/image_provider.ts` (interfaces), which have no executable statements. TypeScript checks both files, and command tests import through the public index. Reports include `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml` for the shared workflows. Use `npm run test:watch` during development, or `npm test -- tests/providers/gelbooru.test.ts` to select a file. Coverage thresholds still apply when selecting tests.
+`npm test` runs Vitest once with V8 coverage. The suite requires 100% coverage of statements, branches, functions, and lines in executable application source. It excludes `src/index.ts`, which only re-exports symbols, and `src/providers/image_provider.ts`, which contains interfaces. Neither file has executable statements. TypeScript checks both, and command tests import through the public index.
 
-Vitest replaces the incomplete Jest/ts-jest scaffold. It transforms TypeScript without relying on ts-jest's TypeScript compatibility range and supports ESM and Jest-style assertions. It does not type-check the application; `npm run typecheck` does that separately. The build also emits declarations through TypeScript. See the [Vitest guide](https://vitest.dev/guide/).
+The shared workflows use `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml`. For local development, use `npm run test:watch`. To run one file, use `npm test -- tests/providers/gelbooru.test.ts`; the coverage thresholds still apply.
 
-Tests inject the provider's HTTP boundary and random number generator, exercise malformed responses and unsuitable results, and verify command routing and startup delegation without logging in to Discord. Shared Core behavior, including HTTP transport and JSON parsing in `Caller`, belongs to Core's own tests.
+We chose Vitest because it supports ESM and Jest-style assertions without tying TypeScript upgrades to ts-jest's compatibility range. Vitest transforms TypeScript to run the tests; `npm run typecheck` checks the types separately. The build also uses TypeScript to emit declarations. See the [Vitest guide](https://vitest.dev/guide/).
 
-Runtime dependencies are BongBot-Core and Discord.js. Development dependencies provide TypeScript compilation, esbuild bundling, and Vitest coverage. Query encoding uses `URLSearchParams`; simple validation and random selection use standard JavaScript.
+Provider tests supply a mock HTTP client and a controlled random number generator. They check malformed responses and unsuitable results. Command and startup tests check routing and calls to Core without logging in to Discord. Core's own tests cover its shared behaviour, including HTTP transport and JSON parsing in `Caller`.
+
+The runtime depends on BongBot-Core and Discord.js. Development tools handle TypeScript compilation, esbuild bundling, and Vitest coverage. The bot uses `URLSearchParams` to encode queries and standard JavaScript for validation and random selection.
 
 ## License
 
