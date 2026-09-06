@@ -2,7 +2,9 @@ FROM node:24-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json .npmrc ./
-RUN --mount=type=secret,id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN npm ci
+RUN --mount=type=secret,id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN,required=true \
+    test -n "$NODE_AUTH_TOKEN" || { echo "NODE_AUTH_TOKEN build secret must not be empty" >&2; exit 1; }; \
+    npm ci
 COPY tsconfig.json esbuild.config.mjs ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev && mkdir -p logs
