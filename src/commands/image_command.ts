@@ -12,7 +12,7 @@ export class ImageCommand {
         name: string,
         description: string,
         private readonly tags: string,
-        private readonly provider: ImageProvider,
+        private readonly provider: ImageProvider
     ) {
         this.data = new SlashCommandBuilder().setName(name).setDescription(description);
         this.fullDesc = { description, options: [] };
@@ -27,7 +27,7 @@ export async function imageResponse(
     interaction: ChatInputCommandInteraction,
     bot: ExtendedClient,
     provider: ImageProvider,
-    tags: string,
+    tags: string
 ) {
     try {
         const post = await provider.search(tags);

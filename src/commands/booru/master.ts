@@ -6,10 +6,21 @@ import { Search } from './search.js';
 
 export class Booru {
     readonly data = new SlashCommandBuilder()
-        .setName('booru').setDescription('Find images on Gelbooru.')
-        .addSubcommand((command) => command.setName('search').setDescription('Search by space-separated tags.')
-            .addStringOption((option) => option.setName('tags').setDescription('For example: shirakami_fubuki solo')
-                .setRequired(true).setMinLength(1).setMaxLength(500)));
+        .setName('booru')
+        .setDescription('Find images on Gelbooru.')
+        .addSubcommand((command) =>
+            command
+                .setName('search')
+                .setDescription('Search by space-separated tags.')
+                .addStringOption((option) =>
+                    option
+                        .setName('tags')
+                        .setDescription('For example: shirakami_fubuki solo')
+                        .setRequired(true)
+                        .setMinLength(1)
+                        .setMaxLength(500)
+                )
+        );
     readonly fullDesc = {
         description: 'Find images on Gelbooru.',
         options: [{ name: 'search', description: 'Search using space-separated tags and underscores within tags.' }],

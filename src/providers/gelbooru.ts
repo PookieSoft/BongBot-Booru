@@ -7,7 +7,7 @@ export class Gelbooru implements ImageProvider {
     constructor(
         private readonly caller: Pick<Caller, 'get'>,
         private readonly options: GelbooruOptions = {},
-        private readonly random: () => number = Math.random,
+        private readonly random: () => number = Math.random
     ) {}
 
     async search(tags: string): Promise<ImagePost | null> {
@@ -20,7 +20,11 @@ export class Gelbooru implements ImageProvider {
         }
         const sfw = this.options.sfw ?? true;
         const params = new URLSearchParams({
-            page: 'dapi', s: 'post', q: 'index', json: '1', limit: '100',
+            page: 'dapi',
+            s: 'post',
+            q: 'index',
+            json: '1',
+            limit: '100',
             tags: sfw ? `${normalized} rating:general` : normalized,
         });
         if (this.options.apiKey && this.options.userId) {
@@ -56,13 +60,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isImage(value: unknown): value is GelbooruPost {
     if (!isRecord(value) || !Number.isSafeInteger(value.id) || Number(value.id) <= 0) return false;
-    if (typeof value.rating !== 'string' || !['general', 'sensitive', 'questionable', 'explicit'].includes(value.rating)) return false;
+    if (
+        typeof value.rating !== 'string' ||
+        !['general', 'sensitive', 'questionable', 'explicit'].includes(value.rating)
+    )
+        return false;
     if (typeof value.file_url !== 'string') return false;
     try {
         const url = new URL(value.file_url);
-        return url.protocol === 'https:' && !url.username && !url.password && !url.port
-            && (url.hostname === 'gelbooru.com' || url.hostname.endsWith('.gelbooru.com'))
-            && /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname);
+        return (
+            url.protocol === 'https:' &&
+            !url.username &&
+            !url.password &&
+            !url.port &&
+            (url.hostname === 'gelbooru.com' || url.hostname.endsWith('.gelbooru.com')) &&
+            /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname)
+        );
     } catch {
         return false;
     }
