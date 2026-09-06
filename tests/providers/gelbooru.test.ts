@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Caller } from '@pookiesoft/bongbot-core';
 import { Gelbooru } from '../../src/providers/gelbooru.js';
+import type { GelbooruOptions } from '../../src/providers/gelbooru.js';
 
 const post = { id: 42, rating: 'general', file_url: 'https://img3.gelbooru.com/images/example.png' };
 const sampleUrl = 'https://img3.gelbooru.com/samples/example.jpg';
 
-function provider(response: unknown, credentials: Record<string, boolean | string> = { allowAiImages: true }, random = () => 0) {
+function provider(response: unknown, credentials: GelbooruOptions = { allowAiImages: true }, random = () => 0) {
     const get = vi.fn().mockResolvedValue(response);
     return { api: new Gelbooru({ get }, credentials, random), get };
 }
@@ -114,3 +115,4 @@ it.each([
 ])('keeps response validation when SFW mode is disabled', async (invalid) => {
     await expect(provider({ post: [invalid] }, { sfw: false }).api.search('solo')).resolves.toBeNull();
 });
+
