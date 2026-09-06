@@ -35,11 +35,13 @@ node --env-file=.env --enable-source-maps dist/standalone.js
 
 | Variable | Requirement |
 | --- | --- |
+| `IMAGE_PROVIDER` | Defaults to `gelbooru`; selects the image provider implementation |
 | `DISCORD_API_KEY` | Required Discord bot token |
 | `DISCORD_CHANNEL_ID` | Optional startup information channel |
 | `GELBOORU_SFW` | Defaults to `true`; `false` allows all ratings |
 | `GELBOORU_API_KEY` | Optional Gelbooru API key; must be paired with user ID |
 | `GELBOORU_USER_ID` | Optional positive numeric Gelbooru user ID; must be paired with API key |
+| `ALLOW_AI_IMAGES` | Defaults to `false`; when false, searches exclude the `ai-generated` tag |
 | `NODE_AUTH_TOKEN` | GitHub Packages token used during installation and Docker builds |
 
 Gelbooru may require authentication or throttle requests, according to its [API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780). You can find your API key and user ID in your account options.
@@ -57,6 +59,27 @@ docker run --rm --env-file .env --volume ./logs:/app/logs bongbot-booru
 
 The build reads the registry token through a BuildKit secret. The container runs as the `node` user, which needs write access to the mounted logs directory. With Docker installed, `npm run dev` builds and runs the same container.
 
+Export a nonempty `NODE_AUTH_TOKEN` before building. In Bash, you can enter it without displaying it or saving it in shell history:
+
+```bash
+read -rsp 'GitHub Packages token: ' NODE_AUTH_TOKEN
+echo
+export NODE_AUTH_TOKEN
+npm run dev
+```
+
+The `.env` file passed to `docker run` supplies runtime variables only; it does not supply the build secret. A missing or empty build secret stops the build before `npm ci`.
+
+For GitHub Actions, the shared workflow's `docker/build-push-action` step must explicitly forward a token with access to BongBot-Core:
+
+```yaml
+with:
+    secrets: |
+        NODE_AUTH_TOKEN=${{ secrets.NODE_AUTH_TOKEN }}
+```
+
+Use the actual token secret name on the right-hand side. The caller's `secrets: inherit` makes secrets available to the shared workflow, but the Docker build still needs this mapping. See [Docker's build secret documentation](https://docs.docker.com/build/ci/github-actions/secrets/).
+
 ## Structure
 
 `src/index.ts` exports the commands and provider interface for composite bots. `src/standalone.ts` starts the bot through BongBot-Core's `basicStart`, following the sibling microservices. Core validates its configuration, handles logging and Discord interactions, and builds startup cards. Commands return response payloads for Core to send; Core also acknowledges the interactions.
@@ -65,7 +88,7 @@ The build reads the registry token through a BuildKit secret. The container runs
 
 `src/providers/gelbooru.ts` takes Core's `Caller` as a constructor argument. In the pinned Core package, version 1.6.50, `Caller` itself takes no constructor arguments. Every Gelbooru request uses this client and a fixed API endpoint; users cannot supply server URLs.
 
-To use another board, implement `ImageProvider` and pass it to `buildCommands`. The image search code needs no database or additional HTTP client.
+To use another board, implement `ImageProvider` and add its environment-aware factory to the provider map in `src/config.ts`. The image search code needs no database or additional HTTP client.
 
 ## Tests and dependencies
 
