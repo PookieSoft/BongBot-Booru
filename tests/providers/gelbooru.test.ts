@@ -95,16 +95,16 @@ describe('Gelbooru', () => {
         expect((await provider({ post: [image] }).api.search('solo'))?.imageUrl).toBe(image.file_url);
     });
 
-    it.each([new Error('URL includes secret-api-key'), 'URL includes secret-api-key'])(
-        'keeps the upstream failure %s out of the message and on the stack',
-        async (upstream) => {
-            const get = vi.fn().mockRejectedValue(upstream);
-            const failure = (await new Gelbooru({ get }).search('solo').catch((error: Error) => error)) as Error;
-            expect(failure.message).toBe('Gelbooru is unavailable. Please try again later.');
-            expect(failure.stack).toContain('Caused by: ');
-            expect(failure.stack).toContain('secret-api-key');
-        }
-    );
+    it.each([
+        new TypeError('fetch failed', { cause: new Error('getaddrinfo ENOTFOUND secret-api-key') }),
+        'getaddrinfo ENOTFOUND secret-api-key',
+    ])('keeps the upstream failure out of the message and on the stack', async (upstream) => {
+        const get = vi.fn().mockRejectedValue(upstream);
+        const failure = (await new Gelbooru({ get }).search('solo').catch((error: Error) => error)) as Error;
+        expect(failure.message).toBe('Gelbooru is unavailable. Please try again later.');
+        expect(failure.stack).toContain('Caused by: ');
+        expect(failure.stack).toContain('getaddrinfo ENOTFOUND secret-api-key');
+    });
 });
 
 

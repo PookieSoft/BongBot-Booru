@@ -39,9 +39,8 @@ export class Gelbooru implements ImageProvider {
         try {
             response = await this.caller.get(endpoint, '/index.php', params.toString());
         } catch (error) {
-            // Only the message reaches the embed, so the upstream status and body ride on the stack, which only the log reads.
             const failure = new Error('Gelbooru is unavailable. Please try again later.');
-            failure.stack = `${failure.stack}\nCaused by: ${error instanceof Error ? error.stack : error}`;
+            failure.stack = `${failure.stack}\nCaused by: ${describeCause(error)}`;
             throw failure;
         }
         if (!isRecord(response)) throw new Error('Gelbooru returned an invalid response.');
@@ -78,6 +77,13 @@ export function createGelbooru(caller: Pick<Caller, 'get'>, env: NodeJS.ProcessE
         // ALLOW_AI_IMAGES compares the opposite way for the same reason; see config.ts.
         sfw: env.GELBOORU_SFW?.trim().toLowerCase() !== 'false',
     });
+}
+
+// fetch reports a bare "TypeError: fetch failed" and keeps the reason on its cause, which nests.
+function describeCause(error: unknown): string {
+    if (!(error instanceof Error)) return String(error);
+    const detail = `${error.stack}`;
+    return error.cause ? `${detail}\nCaused by: ${describeCause(error.cause)}` : detail;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
