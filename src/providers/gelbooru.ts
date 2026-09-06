@@ -2,6 +2,7 @@ import type { Caller } from '@pookiesoft/bongbot-core';
 import type { ImagePost, ImageProvider, ImageSite } from './image_provider.js';
 
 const endpoint = 'https://gelbooru.com';
+const imageHost = new URL(endpoint).hostname;
 
 export class Gelbooru implements ImageProvider {
     readonly site: ImageSite = { name: 'Gelbooru', referer: `${endpoint}/` };
@@ -79,7 +80,7 @@ function isImageUrl(value: string): boolean {
             !url.username &&
             !url.password &&
             !url.port &&
-            (url.hostname === 'gelbooru.com' || url.hostname.endsWith('.gelbooru.com')) &&
+            (url.hostname === imageHost || url.hostname.endsWith(`.${imageHost}`)) &&
             /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname)
         );
     } catch {
