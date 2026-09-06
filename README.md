@@ -12,7 +12,7 @@ A standalone Discord bot that searches Gelbooru, replacing BongBot's Google imag
 
 The bot defaults to SFW searches. With `GELBOORU_SFW=true`, it requests `rating:general` and checks that each returned post has that rating. Leaving the variable unset or blank also enables SFW mode.
 
-To allow all four ratings, including explicit content, set `GELBOORU_SFW=false` and restart the bot. The setting applies to every command and channel. The bot refuses to start if the value is invalid.
+To allow all four ratings, including explicit content, set `GELBOORU_SFW=false` and restart the bot. The setting applies to every command and channel. Only that exact word turns SFW mode off. The bot reads anything else, including a typo, as SFW mode on as a safety fallback to ensure NSFW is intentional.
 
 Tags support underscores, parentheses, wildcards, and a leading minus to exclude a tag. The bot rejects rating overrides and other search operators. It embeds only HTTPS image URLs hosted by Gelbooru and skips videos.
 
@@ -35,13 +35,12 @@ node --env-file=.env --enable-source-maps dist/standalone.js
 
 | Variable | Requirement |
 | --- | --- |
-| `IMAGE_PROVIDER` | Defaults to `gelbooru`; selects the image provider implementation |
 | `DISCORD_API_KEY` | Required Discord bot token |
 | `DISCORD_CHANNEL_ID` | Optional startup information channel |
-| `GELBOORU_SFW` | Defaults to `true`; `false` allows all ratings |
+| `GELBOORU_SFW` | Defaults to `true`; only the exact value `false` allows all ratings |
 | `GELBOORU_API_KEY` | Optional Gelbooru API key; must be paired with user ID |
 | `GELBOORU_USER_ID` | Optional positive numeric Gelbooru user ID; must be paired with API key |
-| `ALLOW_AI_IMAGES` | Defaults to `false`; when false, searches exclude the `ai-generated` tag |
+| `ALLOW_AI_IMAGES` | Defaults to `false`; searches exclude the `ai-generated` tag unless this is exactly `true` |
 | `NODE_AUTH_TOKEN` | GitHub Packages token used during installation and Docker builds |
 
 Gelbooru may require authentication or throttle requests, according to its [API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780). You can find your API key and user ID in your account options.
@@ -86,9 +85,13 @@ Use the actual token secret name on the right-hand side. The caller's `secrets: 
 
 `src/commands/buildCommands.ts` registers the commands through Core's `commandBuilder`. The `/booru` master routes to its search subcommand. Both character commands share `ImageCommand`.
 
-`src/providers/gelbooru.ts` takes Core's `Caller` as a constructor argument. In the pinned Core package, version 1.6.50, `Caller` itself takes no constructor arguments. Every Gelbooru request uses this client and a fixed API endpoint; users cannot supply server URLs.
+`src/standalone.ts` is the only place that builds an HTTP client. It creates one Core `Caller`, hands it to `createProvider` and to `HttpImageDownloader`, and passes the provider and the downloader to `buildCommands`. Both arguments are required, so no command builds its own.
 
-To use another board, implement `ImageProvider` and add its environment-aware factory to the provider map in `src/config.ts`. The image search code needs no database or additional HTTP client.
+`src/helpers/image_downloader.ts` fetches the image bytes and names the attachment. Commands narrow it to `Pick<HttpImageDownloader, 'download'>`, the same way the provider narrows Core's client, so a test replaces the whole download step with one object literal.
+
+`src/providers/gelbooru.ts` takes Core's `Caller` as a constructor argument. In the installed Core package, version 1.7.0, `Caller` itself takes no constructor arguments. The API endpoint is a constant, and the accepted image hosts are derived from it rather than listed separately, so the two cannot drift apart. Users cannot supply server URLs.
+
+To use another board, implement `ImageProvider` and construct it in place of `createProvider`. A composite bot can import `Gelbooru` and pass its options straight to the constructor. The image search code needs no database or additional HTTP client.
 
 ## Tests and dependencies
 
@@ -98,7 +101,7 @@ The shared workflows use `coverage/lcov.info`, `coverage/coverage-summary.json`,
 
 We chose Vitest because it supports ESM and Jest-style assertions without tying TypeScript upgrades to ts-jest's compatibility range. Vitest transforms TypeScript to run the tests; `npm run typecheck` checks the types separately. The build also uses TypeScript to emit declarations. See the [Vitest guide](https://vitest.dev/guide/).
 
-Provider tests supply a mock HTTP client and a controlled random number generator. They check malformed responses and unsuitable results. Command and startup tests check routing and calls to Core without logging in to Discord. Core's own tests cover its shared behaviour, including HTTP transport and JSON parsing in `Caller`.
+Provider tests supply a mock HTTP client and a controlled random number generator. They check malformed responses and unsuitable results. Command and startup tests supply a fake provider and downloader; they check routing and calls to Core without logging in to Discord. Downloader tests cover the request headers, the content-type checks and the attachment names. Core's own tests cover its shared behaviour, including HTTP transport and JSON parsing in `Caller`.
 
 The runtime depends on BongBot-Core and Discord.js. Development tools handle TypeScript compilation, esbuild bundling, and Vitest coverage. The bot uses `URLSearchParams` to encode queries and standard JavaScript for validation and random selection.
 
