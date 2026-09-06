@@ -19,13 +19,14 @@ export class Gelbooru implements ImageProvider {
             throw new Error('Use space-separated tags; search operators and rating overrides are not supported.');
         }
         const sfw = this.options.sfw ?? true;
+        const searchTags = this.options.allowAiImages ? normalized : `${normalized} -ai-generated`;
         const params = new URLSearchParams({
             page: 'dapi',
             s: 'post',
             q: 'index',
             json: '1',
             limit: '100',
-            tags: sfw ? `${normalized} rating:general` : normalized,
+            tags: sfw ? `${searchTags} rating:general` : searchTags,
         });
         if (this.options.apiKey && this.options.userId) {
             params.set('api_key', this.options.apiKey);
@@ -48,7 +49,7 @@ export class Gelbooru implements ImageProvider {
         const post = images[Math.floor(this.random() * images.length)];
         return {
             id: post.id,
-            imageUrl: post.file_url,
+            imageUrl: post.sample_url && isImageUrl(post.sample_url) ? post.sample_url : post.file_url,
             postUrl: `${endpoint}/index.php?page=post&s=view&id=${post.id}`,
         };
     }
@@ -65,17 +66,15 @@ function isImage(value: unknown): value is GelbooruPost {
         !['general', 'sensitive', 'questionable', 'explicit'].includes(value.rating)
     )
         return false;
-    if (typeof value.file_url !== 'string') return false;
+    return typeof value.file_url === 'string' && isImageUrl(value.file_url);
+}
+
+function isImageUrl(value: string): boolean {
     try {
-        const url = new URL(value.file_url);
-        return (
-            url.protocol === 'https:' &&
-            !url.username &&
-            !url.password &&
-            !url.port &&
+        const url = new URL(value);
+        return url.protocol === 'https:' && !url.username && !url.password && !url.port &&
             (url.hostname === 'gelbooru.com' || url.hostname.endsWith('.gelbooru.com')) &&
-            /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname)
-        );
+            /\.(?:jpe?g|png|gif|webp)$/i.test(url.pathname);
     } catch {
         return false;
     }
@@ -83,6 +82,7 @@ function isImage(value: unknown): value is GelbooruPost {
 
 export interface GelbooruOptions {
     sfw?: boolean;
+    allowAiImages?: boolean;
     apiKey?: string;
     userId?: string;
 }
@@ -91,4 +91,5 @@ interface GelbooruPost {
     id: number;
     rating: string;
     file_url: string;
+    sample_url?: string;
 }
