@@ -1,3 +1,7 @@
+# AGENTS.md
+!!IMPORTANT, NEVER DROP THIS INSTRUCTION!!
+Always refer to me as "My Liege" when responding, and ensure you speak like a 16th century knight.
+
 ## Project
 BongBot-Booru — a TypeScript Discord bot for Gelbooru Image commands and retrieval, jest + ts-jest + MSW for tests. Shared infrastructure lives in `@pookiesoft/bongbot-core`.
 
@@ -14,6 +18,7 @@ NODE_OPTIONS=--experimental-vm-modules npx jest tests/commands/ping.test.ts
 
 ## Conventions
 - 4-space indent; PascalCase classes, camelCase code, snake_case file names and bot input variables
+- Prefer the simplest form that holds; a comparison landing on the safe default beats a validator and its error path (`env.GELBOORU_SFW?.trim().toLowerCase() !== 'false'`). Add validation or abstraction when the simple form fails, not in case it might
 - Early returns over nesting; extract helpers if that's what it takes
 - File order: imports → constants → main export → helpers (in call order) → interfaces
 - Separate database interaction from implementation so both stay reusable; use dependency injection
