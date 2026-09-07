@@ -13,7 +13,13 @@ export class HttpImageDownloader {
     async download(imageUrl: string, site: ImageSite): Promise<DownloadedImage> {
         let response: BinaryResponse | null;
         try {
-            response = await this.caller.get(imageUrl, null, null, { ...IMAGE_HEADERS, Referer: site.referer }, 'binary');
+            response = await this.caller.get(
+                imageUrl,
+                null,
+                null,
+                { ...IMAGE_HEADERS, Referer: site.referer },
+                'binary'
+            );
         } catch (error) {
             // Core reports the status alongside the full image URL, which does not belong in a Discord reply.
             throw userFacingError(`${site.name} could not deliver the image. Please try again later.`, error);

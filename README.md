@@ -1,24 +1,26 @@
 # BongBot-Booru
 
-A standalone Discord bot that searches Gelbooru, replacing BongBot's Google image commands from [issue #82](https://github.com/PookieSoft/BongBot/issues/82).
+A standalone Discord bot that searches Safebooru or Gelbooru, replacing BongBot's Google image commands from [issue #82](https://github.com/PookieSoft/BongBot/issues/82).
 
 ## Commands
 
-| Command | Search |
-| --- | --- |
-| `/clown` | Omaru Polka (`omaru_polka`) |
-| `/fox` | Shirakami Fubuki (`shirakami_fubuki`) |
-| `/booru search tags:shirakami_fubuki solo` | Space-separated Gelbooru tags |
+| Command                                    | Search                                |
+| ------------------------------------------ | ------------------------------------- |
+| `/clown`                                   | Omaru Polka (`omaru_polka`)           |
+| `/fox`                                     | Shirakami Fubuki (`shirakami_fubuki`) |
+| `/booru search tags:shirakami_fubuki solo` | Tags from the selected board          |
 
-The bot defaults to SFW searches. With `GELBOORU_SFW=true`, it requests `rating:general` and checks that each returned post has that rating. Leaving the variable unset or blank also enables SFW mode.
+The bot defaults to Safebooru for searches and autocomplete. Set `IMAGE_PROVIDER=safebooru` to choose it explicitly. Safebooru needs no credentials, and this provider never contacts Gelbooru.
 
-To allow all four ratings, including explicit content, set `GELBOORU_SFW=false` and restart the bot. The setting applies to every command and channel. Only that exact word turns SFW mode off. The bot reads anything else, including a typo, as SFW mode on as a safety fallback to ensure NSFW is intentional.
+Set `IMAGE_PROVIDER=gelbooru` to use Gelbooru for searches and autocomplete. Gelbooru defaults to `GELBOORU_SFW=true`: it adds `rating:general` to searches and filters returned posts to that rating. Set `GELBOORU_SFW=false` to allow all four ratings, including explicit content. The provider applies to every command and channel. Any other `IMAGE_PROVIDER` value stops startup with an error.
 
-Tags support underscores, parentheses, wildcards, and a leading minus to exclude a tag. The bot rejects rating overrides and other search operators. It embeds only HTTPS image URLs hosted by Gelbooru and skips videos.
+`GELBOORU_SFW` controls the Gelbooru rating filter. When `IMAGE_PROVIDER` is unset, the legacy value `false` selects Gelbooru; every other value selects Safebooru. This comparison ignores surrounding whitespace and letter case. An explicit `IMAGE_PROVIDER` takes precedence for board selection; `GELBOORU_SFW` still controls filtering when Gelbooru is selected. Existing SFW deployments therefore use Safebooru instead of filtered Gelbooru.
 
-[Gelbooru's rating guide](https://gelbooru.com/index.php?page=wiki&s=view&id=2535) defines General as SFW. SFW mode excludes Sensitive, Questionable, and Explicit posts. Ratings depend on correct tagging, so they cannot guarantee that every image suits every audience.
+Tags support underscores, parentheses, wildcards, and a leading minus to exclude a tag. The bot rejects rating overrides and other search operators. Both providers exclude `ai-generated` unless `ALLOW_AI_IMAGES=true`. Image URLs must use HTTPS and belong to the selected board's host or a subdomain. The bot skips videos.
 
-For each request, the bot picks a random eligible image from the first 100 matching posts. Images elsewhere on the board are outside that sample. If no images match or Gelbooru fails to respond, the bot returns a message explaining the problem.
+For each request, the bot picks a random valid image from the first 100 matching posts. Images elsewhere on the board are outside that sample. If no images match or the board fails to respond, the bot returns a message explaining the problem. Safebooru's empty JSON response counts as no results.
+
+Safebooru responses use the title "View on Safebooru", link to the post on safebooru.org, and name PNG attachments `safebooru-image.png`.
 
 ## Setup
 
@@ -33,15 +35,16 @@ npm run build
 node --env-file=.env --enable-source-maps dist/standalone.js
 ```
 
-| Variable | Requirement |
-| --- | --- |
-| `DISCORD_API_KEY` | Required Discord bot token |
-| `DISCORD_CHANNEL_ID` | Optional startup information channel |
-| `GELBOORU_SFW` | Defaults to `true`; only the exact value `false` allows all ratings |
-| `GELBOORU_API_KEY` | Optional Gelbooru API key; must be paired with user ID |
-| `GELBOORU_USER_ID` | Optional positive numeric Gelbooru user ID; must be paired with API key |
-| `ALLOW_AI_IMAGES` | Defaults to `false`; searches exclude the `ai-generated` tag unless this is exactly `true` |
-| `NODE_AUTH_TOKEN` | GitHub Packages token used during installation and Docker builds |
+| Variable             | Requirement                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_API_KEY`    | Required Discord bot token                                                                                                  |
+| `DISCORD_CHANNEL_ID` | Optional startup information channel                                                                                        |
+| `IMAGE_PROVIDER`     | `safebooru` (default) or `gelbooru`                                                                                         |
+| `GELBOORU_SFW`       | Gelbooru only: defaults to `true`; `false` disables rating filtering. Also selects the board when `IMAGE_PROVIDER` is unset |
+| `GELBOORU_API_KEY`   | Gelbooru only: optional API key; must be paired with user ID                                                                |
+| `GELBOORU_USER_ID`   | Gelbooru only: optional positive numeric user ID; must be paired with API key                                               |
+| `ALLOW_AI_IMAGES`    | Defaults to `false`; searches exclude the `ai-generated` tag unless this is exactly `true`                                  |
+| `NODE_AUTH_TOKEN`    | GitHub Packages token used during installation and Docker builds                                                            |
 
 Gelbooru may require authentication or throttle requests, according to its [API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780). You can find your API key and user ID in your account options.
 
@@ -89,9 +92,9 @@ Use the actual token secret name on the right-hand side. The caller's `secrets: 
 
 `src/helpers/image_downloader.ts` fetches the image bytes and names the attachment. Commands narrow it to `Pick<HttpImageDownloader, 'download'>`, the same way the provider narrows Core's client, so a test replaces the whole download step with one object literal.
 
-`src/providers/gelbooru.ts` takes Core's `Caller` as a constructor argument. In the installed Core package, version 1.7.0, `Caller` itself takes no constructor arguments. The API endpoint is a constant, and the accepted image hosts are derived from it rather than listed separately, so the two cannot drift apart. Users cannot supply server URLs.
+`src/providers/gelbooru.ts` and `src/providers/safebooru.ts` take Core's `Caller` as a constructor argument. In the installed Core package, version 1.7.0, `Caller` itself takes no constructor arguments. Each provider derives its image host from its fixed API endpoint and passes it to the shared validator in `src/providers/post_validation.ts`. Users cannot supply server URLs.
 
-To use another board, implement `ImageProvider` and construct it in place of `createProvider`. A composite bot can import `Gelbooru` and pass its options straight to the constructor. The image search code needs no database or additional HTTP client.
+To use another board, implement `ImageProvider` and construct it in place of `createProvider`. A composite bot can import `Gelbooru` or `Safebooru` and pass options straight to the constructor. `GelbooruOptions.sfw` controls Gelbooru rating filtering and defaults to `true`. The factories `createGelbooru` and `createSafebooru` are also exported. The image search code needs no database or additional HTTP client.
 
 ## Tests and dependencies
 
