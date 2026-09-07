@@ -1,50 +1,77 @@
 # BongBot-Booru
 
-A standalone Discord bot that searches Safebooru or Gelbooru, replacing BongBot's Google image commands from [issue #82](https://github.com/PookieSoft/BongBot/issues/82).
+A Discord bot for finding images on Safebooru or Gelbooru. It replaces BongBot's Google image commands from [issue #82](https://github.com/PookieSoft/BongBot/issues/82).
 
 ## Commands
 
-| Command                                    | Search                                |
-| ------------------------------------------ | ------------------------------------- |
-| `/clown`                                   | Omaru Polka (`omaru_polka`)           |
-| `/fox`                                     | Shirakami Fubuki (`shirakami_fubuki`) |
-| `/booru search tags:shirakami_fubuki solo` | Tags from the selected board          |
+| Command                                           | Search                                |
+| ------------------------------------------------- | ------------------------------------- |
+| `/clown`                                          | Omaru Polka (`omaru_polka`)           |
+| `/fox`                                            | Shirakami Fubuki (`shirakami_fubuki`) |
+| `/booru search tag_1:shirakami_fubuki tag_2:solo` | Tags from the selected board          |
 
-The bot defaults to Safebooru for searches and autocomplete. Set `IMAGE_PROVIDER=safebooru` to choose it explicitly. Safebooru needs no credentials, and this provider never contacts Gelbooru.
+`/booru search` accepts up to five tags, one per field (`tag_1` through `tag_5`). The first is required. Each field accepts up to 100 characters and offers autocomplete suggestions. Tags can contain letters, numbers, underscores, parentheses, periods, hyphens, and wildcards. A leading minus excludes a tag. Rating overrides and other search operators are rejected.
 
-Set `IMAGE_PROVIDER=gelbooru` to use Gelbooru for searches and autocomplete. Gelbooru defaults to `GELBOORU_SFW=true`: it adds `rating:general` to searches and filters returned posts to that rating. Set `GELBOORU_SFW=false` to allow all four ratings, including explicit content. The provider applies to every command and channel. Any other `IMAGE_PROVIDER` value stops startup with an error. Gelbooru rating filters depend on correct tagging and cannot guarantee that every image suits every audience.
+The bot uses Safebooru for searches and autocomplete by default. Safebooru needs no credentials. Set `IMAGE_PROVIDER=gelbooru` to use Gelbooru for every command and channel.
 
-`GELBOORU_SFW` controls the Gelbooru rating filter. When `IMAGE_PROVIDER` is unset, the legacy value `false` selects Gelbooru; every other value selects Safebooru. This comparison ignores surrounding whitespace and letter case. An explicit `IMAGE_PROVIDER` takes precedence for board selection; `GELBOORU_SFW` still controls filtering when Gelbooru is selected. Existing SFW deployments therefore use Safebooru instead of filtered Gelbooru.
+Gelbooru searches add `rating:general` and discard posts with any other rating. Set `GELBOORU_SFW=false` to accept general, sensitive, questionable, and explicit posts. Filtering relies on the board's tags; it cannot guarantee that every image suits every audience. Safebooru uses its own board content without an extra rating filter.
 
-Tags support underscores, parentheses, wildcards, and a leading minus to exclude a tag. The bot rejects rating overrides and other search operators. Both providers exclude `ai-generated` unless `ALLOW_AI_IMAGES=true`. Image URLs must use HTTPS and belong to the selected board's host or a subdomain. The bot skips videos.
+When `IMAGE_PROVIDER` is unset, `GELBOORU_SFW=false` selects Gelbooru; all other values select Safebooru. An explicit `IMAGE_PROVIDER` overrides that choice and must be exactly `safebooru` or `gelbooru`, or startup fails. The comparisons for `GELBOORU_SFW` and `ALLOW_AI_IMAGES` ignore surrounding whitespace and letter case.
 
-For each request, the bot picks a random valid image from the first 100 matching posts. Images elsewhere on the board are outside that sample. If no images match or the board fails to respond, the bot returns a message explaining the problem. Safebooru's empty JSON response counts as no results.
+Both providers add `-ai-generated` to searches unless `ALLOW_AI_IMAGES=true`. Each request fetches up to 100 matching posts and picks a random valid image from that response. It prefers a valid sample image when one is available. The bot accepts JPEG, PNG, GIF, and WebP URLs over HTTPS on the selected board's host or a subdomain, with no credentials or non-default port. Videos are skipped.
 
-Safebooru responses use the title "View on Safebooru", link to the post on safebooru.org, and name PNG attachments `safebooru-image.png`.
+Replies attach the image and link to its post with the title "View on Safebooru" or "View on Gelbooru". Attachment names follow the board and image extension, such as `safebooru-image.png`. If no valid images remain or a request fails, the bot replies with an explanation. An empty Safebooru search response counts as no results.
 
-## Setup
+## Quick start with Docker
 
-Use Node.js 24 or later. As in BongBot-Quote and BongBot-Ptero, `.npmrc` directs the `@pookiesoft` scope to GitHub Packages and reads its token from `NODE_AUTH_TOKEN`. Export that variable in your shell with a token that has `read:packages` access to BongBot-Core. Keep the token out of Git.
+### Prerequisites
 
-```sh
-npm ci
-cp .env.example .env
-npm run typecheck
-npm test
-npm run build
-node --env-file=.env --enable-source-maps dist/standalone.js
-```
+- Docker installed on your system.
+- A Discord bot token.
 
-| Variable             | Requirement                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `DISCORD_API_KEY`    | Required Discord bot token                                                                                                  |
-| `DISCORD_CHANNEL_ID` | Optional startup information channel                                                                                        |
-| `IMAGE_PROVIDER`     | `safebooru` (default) or `gelbooru`                                                                                         |
-| `GELBOORU_SFW`       | Gelbooru only: defaults to `true`; `false` disables rating filtering. Also selects the board when `IMAGE_PROVIDER` is unset |
-| `GELBOORU_API_KEY`   | Gelbooru only: optional API key; must be paired with user ID                                                                |
-| `GELBOORU_USER_ID`   | Gelbooru only: optional positive numeric user ID; must be paired with API key                                               |
-| `ALLOW_AI_IMAGES`    | Defaults to `false`; searches exclude the `ai-generated` tag unless this is exactly `true`                                  |
-| `NODE_AUTH_TOKEN`    | GitHub Packages token used during installation and Docker builds                                                            |
+### Running the bot
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/PookieSoft/BongBot-Booru.git
+    cd BongBot-Booru
+    ```
+
+2. Copy the example environment file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` and set your Discord bot token. The example uses Safebooru, which needs no board credentials:
+
+    ```env
+    DISCORD_API_KEY=your_discord_bot_token_here
+    IMAGE_PROVIDER=safebooru
+    ```
+
+3. Run the pre-built development image:
+
+    ```bash
+    docker run --rm --env-file .env --volume ./logs:/app/logs mirasi/bongbot-booru:latest
+    ```
+
+The container runs as the `node` user, which needs write access to the mounted logs directory.
+
+## Environment configuration
+
+| Variable             | Required or optional                                           | Purpose and default                                                                                                           |
+| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_API_KEY`    | Required                                                       | Discord bot token.                                                                                                            |
+| `DISCORD_CHANNEL_ID` | Optional                                                       | Channel for the deployment card. Core logs an error if omitted.                                                               |
+| `IMAGE_PROVIDER`     | Optional                                                       | `safebooru` or `gelbooru`. Defaults to Safebooru unless `GELBOORU_SFW=false`.                                                 |
+| `GELBOORU_SFW`       | Optional                                                       | Defaults to `true`; `false` disables Gelbooru rating filtering. Also selects the board when `IMAGE_PROVIDER` is unset.        |
+| `GELBOORU_API_KEY`   | Optional; required with `GELBOORU_USER_ID` when using Gelbooru | Gelbooru API key. Ignored when using Safebooru.                                                                               |
+| `GELBOORU_USER_ID`   | Optional; required with `GELBOORU_API_KEY` when using Gelbooru | Positive integer Gelbooru user ID. Ignored when using Safebooru.                                                              |
+| `ALLOW_AI_IMAGES`    | Optional                                                       | Defaults to `false`; searches exclude the `ai-generated` tag unless set to `true` (ignoring case and surrounding whitespace). |
+
+Edit `.env` and set `DISCORD_API_KEY` before starting the bot. The copied example explicitly selects Safebooru; change `IMAGE_PROVIDER` to use Gelbooru.
 
 Gelbooru may require authentication or throttle requests, according to its [API documentation](https://gelbooru.com/index.php?page=wiki&s=view&id=18780). You can find your API key and user ID in your account options.
 
@@ -52,62 +79,35 @@ Invite the bot with the `bot` and `applications.commands` scopes. Grant it View 
 
 Core registers global slash commands and can post a deployment card. Use a separate bot application from the main BongBot: registration replaces the application's command list.
 
-## Docker
+## Local development
+
+Use Node.js 24 or later. With dependencies installed and `.env` configured, build and run the bot:
 
 ```sh
-docker build --secret id=NODE_AUTH_TOKEN,env=NODE_AUTH_TOKEN -t bongbot-booru .
-docker run --rm --env-file .env --volume ./logs:/app/logs bongbot-booru
+npm run typecheck
+npm test
+npm run build
+node --env-file=.env --enable-source-maps dist/standalone.js
 ```
-
-The build reads the registry token through a BuildKit secret. The container runs as the `node` user, which needs write access to the mounted logs directory. With Docker installed, `npm run dev` builds and runs the same container.
-
-Export a nonempty `NODE_AUTH_TOKEN` before building. In Bash, you can enter it without displaying it or saving it in shell history:
-
-```bash
-read -rsp 'GitHub Packages token: ' NODE_AUTH_TOKEN
-echo
-export NODE_AUTH_TOKEN
-npm run dev
-```
-
-The `.env` file passed to `docker run` supplies runtime variables only; it does not supply the build secret. A missing or empty build secret stops the build before `npm ci`.
-
-For GitHub Actions, the shared workflow's `docker/build-push-action` step must explicitly forward a token with access to BongBot-Core:
-
-```yaml
-with:
-    secrets: |
-        NODE_AUTH_TOKEN=${{ secrets.NODE_AUTH_TOKEN }}
-```
-
-Use the actual token secret name on the right-hand side. The caller's `secrets: inherit` makes secrets available to the shared workflow, but the Docker build still needs this mapping. See [Docker's build secret documentation](https://docs.docker.com/build/ci/github-actions/secrets/).
 
 ## Structure
 
-`src/index.ts` exports the commands and provider interface for composite bots. `src/standalone.ts` starts the bot through BongBot-Core's `basicStart`, following the sibling microservices. Core validates its configuration, handles logging and Discord interactions, and builds startup cards. Commands return response payloads for Core to send; Core also acknowledges the interactions.
+`src/index.ts` exports commands, providers, factories, and HTTP helpers for composite bots. `src/standalone.ts` creates the dependencies and starts the bot through BongBot-Core's `basicStart`. Core validates configuration, handles logging, registers commands, and sends command responses. The standalone entry point routes autocomplete interactions separately because Core's handler skips them.
 
-`src/commands/buildCommands.ts` registers the commands through Core's `commandBuilder`. The `/booru` master routes to its search subcommand. Both character commands share `ImageCommand`.
+`src/commands/buildCommands.ts` registers the commands through Core's `commandBuilder`. The `/booru` master routes to its search subcommand; `/clown` and `/fox` share `ImageCommand`.
 
-`src/standalone.ts` is the only place that builds an HTTP client. It creates one Core `Caller`, hands it to `createProvider` and to `HttpImageDownloader`, and passes the provider and the downloader to `buildCommands`. Both arguments are required, so no command builds its own.
+The standalone entry point creates one Core `Caller` and wraps it in `RetryingCaller` before passing it to `createProvider` and `HttpImageDownloader`. The wrapper makes up to three attempts when a request throws a `TypeError`, which covers fetch failures that receive no response. Other errors pass through immediately. The provider and downloader are required arguments to `buildCommands`.
 
-`src/helpers/image_downloader.ts` fetches the image bytes and names the attachment. Commands narrow it to `Pick<HttpImageDownloader, 'download'>`, the same way the provider narrows Core's client, so a test replaces the whole download step with one object literal.
+Each provider derives its allowed image host from a fixed API endpoint and validates image URLs through `src/providers/post_validation.ts`. Users cannot supply server URLs. `HttpImageDownloader` expects a URL already validated by the provider; it checks the downloaded response's content type, fetches the bytes, and names the attachment.
 
-`src/providers/gelbooru.ts` and `src/providers/safebooru.ts` take Core's `Caller` as a constructor argument. In the installed Core package, version 1.7.0, `Caller` itself takes no constructor arguments. Each provider derives its image host from its fixed API endpoint and passes it to the shared validator in `src/providers/post_validation.ts`. Users cannot supply server URLs.
-
-To use another board, implement `ImageProvider` and construct it in place of `createProvider`. A composite bot can import `Gelbooru` or `Safebooru` and pass options straight to the constructor. `GelbooruOptions.sfw` controls Gelbooru rating filtering and defaults to `true`. The factories `createGelbooru` and `createSafebooru` are also exported. The image search code needs no database or additional HTTP client.
+To use another board, implement `ImageProvider` and pass it to `buildCommands` with a downloader. Composite bots can also construct `Gelbooru` or `Safebooru` directly with a caller and options, or use the exported `createGelbooru` and `createSafebooru` factories. `GelbooruOptions.sfw` defaults to `true`. Network dependencies use narrow types such as `Pick<Caller, 'get'>` and `Pick<HttpImageDownloader, 'download'>`, so tests can supply object literals.
 
 ## Tests and dependencies
 
-`npm test` runs Vitest once with V8 coverage. The suite requires 100% coverage of statements, branches, functions, and lines in executable application source. It excludes `src/index.ts`, which only re-exports symbols, and `src/providers/image_provider.ts`, which contains interfaces. Neither file has executable statements. TypeScript checks both, and command tests import through the public index.
+`npm test` runs Vitest once with V8 coverage and requires 100% coverage of statements, branches, functions, and lines. Coverage excludes `src/index.ts` and `src/providers/image_provider.ts`, which contain only re-exports and interfaces. TypeScript checks both, and command tests import through the public index.
 
-The shared workflows use `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml`. For local development, use `npm run test:watch`. To run one file, use `npm test -- tests/providers/gelbooru.test.ts`; the coverage thresholds still apply.
+The test run writes `coverage/lcov.info`, `coverage/coverage-summary.json`, and `test-results/junit.xml`. Use `npm run test:watch` during development. To run one file without coverage thresholds, use `npx vitest run tests/providers/gelbooru.test.ts`. Running it through `npm test -- tests/providers/gelbooru.test.ts` still applies the full coverage requirements.
 
-We chose Vitest because it supports ESM and Jest-style assertions without tying TypeScript upgrades to ts-jest's compatibility range. Vitest transforms TypeScript to run the tests; `npm run typecheck` checks the types separately. The build also uses TypeScript to emit declarations. See the [Vitest guide](https://vitest.dev/guide/).
+Provider tests use fake HTTP clients and controlled random values to check searches, autocomplete, malformed responses, and rejected images. Command and startup tests use fake providers and downloaders without logging in to Discord. Separate tests cover downloads, retry limits, and error messages.
 
-Provider tests supply a mock HTTP client and a controlled random number generator. They check malformed responses and unsuitable results. Command and startup tests supply a fake provider and downloader; they check routing and calls to Core without logging in to Discord. Downloader tests cover the request headers, the content-type checks and the attachment names. Core's own tests cover its shared behaviour, including HTTP transport and JSON parsing in `Caller`.
-
-The runtime depends on BongBot-Core and Discord.js. Development tools handle TypeScript compilation, esbuild bundling, and Vitest coverage. The bot uses `URLSearchParams` to encode queries and standard JavaScript for validation and random selection.
-
-## License
-
-[MIT](LICENSE).
+[Vitest](https://vitest.dev/guide/) runs the TypeScript tests; `npm run typecheck` checks source and test types separately. `npm run build` bundles the code with esbuild and emits TypeScript declarations. Runtime dependencies are BongBot-Core and Discord.js. Queries use `URLSearchParams`; the bot needs no database.
