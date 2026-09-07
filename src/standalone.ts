@@ -10,7 +10,6 @@ const provider = createProvider(caller);
 const downloader = new HttpImageDownloader(caller);
 mkdirSync('logs', { recursive: true });
 const bot = await basicStart('PookieSoft', 'BongBot-Booru', (client) => buildCommands(client, provider, downloader));
-// Core's handler ignores an autocomplete interaction, so the tag suggestions are wired up here.
 bot.on('interactionCreate', (interaction) => {
     if (!interaction.isAutocomplete()) return;
     bot.commands

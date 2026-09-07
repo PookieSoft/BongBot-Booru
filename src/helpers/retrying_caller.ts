@@ -6,14 +6,16 @@ const ATTEMPTS = 3;
 // to 0, so every bot can ask for it and none inherits it unasked. This wrapper then goes away and
 // standalone.ts passes the count instead.
 /**
- * Gelbooru resets about one connection in five from a datacentre address, so a lone attempt
- * fails often enough to be seen. Only a failure that produced no response is worth repeating:
- * fetch rejects with a TypeError when nothing came back, whilst Core throws a plain Error for
- * a status it did receive, and repeating a 401 or a 429 helps nobody.
+ * A {@link Caller} wrapper that repeats a `get` which produced no response at all.
  */
 export class RetryingCaller implements Pick<Caller, 'get'> {
     constructor(private readonly caller: Pick<Caller, 'get'>) {}
 
+    /**
+     * @param request Arguments passed straight to the wrapped caller.
+     * @returns The wrapped caller's response.
+     * @throws {Error} At once for a failure that carried a response, or the last error once the attempts are spent.
+     */
     async get(...request: Parameters<Caller['get']>): ReturnType<Caller['get']> {
         for (let attempt = 1; ; attempt++) {
             try {

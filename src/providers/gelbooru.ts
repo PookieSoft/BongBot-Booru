@@ -62,7 +62,6 @@ export class Gelbooru implements ImageProvider {
         const params = new URLSearchParams({ page: 'autocomplete2', term, type: 'tag_query', limit: '25' });
         const response = await this.caller.get(endpoint, '/index.php', params.toString());
         if (!Array.isArray(response)) return [];
-        // Gelbooru orders these by post count, so the most used tag arrives first.
         return response.filter(isSuggestion).map((entry) => ({
             tag: entry.value,
             label: entry.label,

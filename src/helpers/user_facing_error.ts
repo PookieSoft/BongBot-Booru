@@ -2,9 +2,11 @@
 // holds both halves, passing the message to the embed and the error to LOGGER, so it could walk the
 // cause chain itself and every bot would get the detail without copying this file.
 /**
- * An error whose message is safe to put in front of a user, carrying the real failure on its stack.
- * Core's error builder shows the message in the embed and gives the logger both, so the upstream
- * status, body and URL stay out of Discord and stay in the log.
+ * Builds an error safe to put in front of a user, keeping the real failure on its stack.
+ *
+ * @param message Text shown in the Discord embed.
+ * @param cause   The failure to record, walked to the end of its cause chain.
+ * @returns An error to throw.
  */
 export function userFacingError(message: string, cause: unknown): Error {
     const failure = new Error(message);
@@ -12,7 +14,6 @@ export function userFacingError(message: string, cause: unknown): Error {
     return failure;
 }
 
-// fetch reports a bare "TypeError: fetch failed" and keeps the reason on its cause, which nests.
 function describeCause(error: unknown): string {
     if (!(error instanceof Error)) return String(error);
     const detail = `${error.stack}`;
