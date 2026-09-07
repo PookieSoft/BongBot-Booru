@@ -40,7 +40,7 @@ it('registers all commands and metadata through Core', () => {
     expect(payload.map((command) => command.name)).toEqual(['clown', 'fox', 'booru']);
     for (const command of bot.commands.values()) expect(command.fullDesc.description).toBeTruthy();
     const fields = payload[2].options[0].options;
-    expect(fields.map((field: { name: string }) => field.name)).toEqual(['tag_1', 'tag_2', 'tag_3', 'tag_4']);
+    expect(fields.map((field: { name: string }) => field.name)).toEqual(['tag_1', 'tag_2', 'tag_3', 'tag_4', 'tag_5']);
     expect(fields[0]).toMatchObject({ required: true, autocomplete: true, max_length: 100 });
     expect(fields[3]).toMatchObject({ required: false, autocomplete: true, max_length: 100 });
 });
