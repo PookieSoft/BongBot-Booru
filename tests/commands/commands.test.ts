@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { Collection } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import type { ExtendedClient } from '@pookiesoft/bongbot-core';
 import { buildError } from '@pookiesoft/bongbot-core';
 import { Booru, ImageCommand, buildCommands } from '../../src/index.js';
@@ -22,7 +22,7 @@ function download(image: unknown = { data: Buffer.from([1, 2, 3]), filename: 'ge
 }
 
 function provider(result: unknown = post, providerSite = site) {
-    return { site: providerSite, search: vi.fn().mockResolvedValue(result) };
+    return { site: providerSite, search: vi.fn().mockResolvedValue(result), suggest: vi.fn().mockResolvedValue([]) };
 }
 
 beforeEach(() => {
@@ -88,7 +88,76 @@ it('reports a failed download through the shared error builder', async () => {
 
 it('uses the shared error builder', async () => {
     const error = new Error('Gelbooru unavailable');
-    const command = new Booru({ site, search: vi.fn().mockRejectedValue(error) }, download());
+    const command = new Booru({ site, search: vi.fn().mockRejectedValue(error), suggest: vi.fn() }, download());
     expect(await command.execute(interaction, bot)).toEqual({ content: 'Error', isError: true });
     expect(buildError).toHaveBeenCalledWith(interaction, error);
+});
+
+function autocompleteInteraction(typed: string, subcommand = 'search') {
+    return {
+        options: { getFocused: vi.fn(() => typed), getSubcommand: vi.fn(() => subcommand) },
+        respond: vi.fn(),
+    } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
+}
+
+it('offers the literal tags behind what the user is typing', async () => {
+    const suggesting = provider();
+    suggesting.suggest.mockResolvedValue([
+        { tag: 'furina_(genshin_impact)', label: 'furina (genshin impact)', postCount: 13542 },
+        { tag: 'furina_(genshin_impact)_(cosplay)', label: 'furina (genshin impact) (cosplay)', postCount: 158 },
+    ]);
+    const interaction = autocompleteInteraction('furina');
+
+    await new Booru(suggesting, download()).autocomplete(interaction);
+
+    expect(suggesting.suggest).toHaveBeenCalledWith('furina');
+    expect(interaction.respond).toHaveBeenCalledWith([
+        { name: 'furina (genshin impact) (13,542 posts)', value: 'furina_(genshin_impact)' },
+        { name: 'furina (genshin impact) (cosplay) (158 posts)', value: 'furina_(genshin_impact)_(cosplay)' },
+    ]);
+});
+
+it('completes only the word under the cursor and keeps the tags already typed', async () => {
+    const suggesting = provider();
+    suggesting.suggest.mockResolvedValue([{ tag: 'furina_(genshin_impact)', label: 'furina', postCount: 1 }]);
+    const interaction = autocompleteInteraction('solo blue_hair furi');
+
+    await new Booru(suggesting, download()).autocomplete(interaction);
+
+    expect(suggesting.suggest).toHaveBeenCalledWith('furi');
+    expect(interaction.respond).toHaveBeenCalledWith([
+        { name: 'furina (1 posts)', value: 'solo blue_hair furina_(genshin_impact)' },
+    ]);
+});
+
+it('asks for nothing until a word is typed', async () => {
+    const suggesting = provider();
+    const interaction = autocompleteInteraction('solo ');
+
+    await new Booru(suggesting, download()).autocomplete(interaction);
+
+    expect(suggesting.suggest).not.toHaveBeenCalled();
+    expect(interaction.respond).toHaveBeenCalledWith([]);
+});
+
+it('drops a choice Discord would reject as too long', async () => {
+    const suggesting = provider();
+    suggesting.suggest.mockResolvedValue([
+        { tag: 'a'.repeat(60), label: 'long', postCount: 1 },
+        { tag: 'short', label: 'short', postCount: 1 },
+    ]);
+    const interaction = autocompleteInteraction(`${'b'.repeat(50)} lon`);
+
+    await new Booru(suggesting, download()).autocomplete(interaction);
+
+    expect(interaction.respond.mock.calls[0][0]).toEqual([
+        { name: 'short (1 posts)', value: `${'b'.repeat(50)} short` },
+    ]);
+});
+
+it('rejects autocomplete for a subcommand it does not know', async () => {
+    const interaction = autocompleteInteraction('furina', 'unknown');
+    await expect(new Booru(provider(), download()).autocomplete(interaction)).rejects.toThrow(
+        'Unknown booru subcommand.'
+    );
 });

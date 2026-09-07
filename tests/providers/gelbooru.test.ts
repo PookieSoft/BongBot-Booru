@@ -104,6 +104,42 @@ describe('Gelbooru', () => {
 });
 
 
+describe('suggest', () => {
+    const entry = { type: 'tag', label: 'furina (genshin impact)', value: 'furina_(genshin_impact)', post_count: '13542' };
+
+    it('asks Gelbooru for tags matching the term', async () => {
+        const get = vi.fn().mockResolvedValue([entry]);
+        await expect(new Gelbooru({ get }).suggest('furina')).resolves.toEqual([
+            { tag: 'furina_(genshin_impact)', label: 'furina (genshin impact)', postCount: 13542 },
+        ]);
+        const params = new URLSearchParams(get.mock.calls[0][2]);
+        expect(get.mock.calls[0][0]).toBe('https://gelbooru.com');
+        expect(params.get('page')).toBe('autocomplete2');
+        expect(params.get('term')).toBe('furina');
+        expect(params.get('type')).toBe('tag_query');
+    });
+
+    it('reads a count that arrives as a number', async () => {
+        const get = vi.fn().mockResolvedValue([{ ...entry, post_count: 13542 }]);
+        expect((await new Gelbooru({ get }).suggest('furina'))[0].postCount).toBe(13542);
+    });
+
+    it.each([
+        { ...entry, value: 42 },
+        { ...entry, label: null },
+        { ...entry, post_count: 'lots' },
+        'not a suggestion',
+    ])('drops the malformed entry %s', async (invalid) => {
+        const get = vi.fn().mockResolvedValue([invalid]);
+        await expect(new Gelbooru({ get }).suggest('furina')).resolves.toEqual([]);
+    });
+
+    it('returns nothing when Gelbooru answers with something other than a list', async () => {
+        const get = vi.fn().mockResolvedValue({ '@attributes': { count: 0 } });
+        await expect(new Gelbooru({ get }).suggest('furina')).resolves.toEqual([]);
+    });
+});
+
 it.each(['general', 'sensitive', 'questionable', 'explicit'])('allows %s only when SFW mode is disabled', async (rating) => {
     const { api, get } = provider({ post: [{ ...post, rating }] }, { sfw: false });
     expect((await api.search('solo'))?.id).toBe(42);

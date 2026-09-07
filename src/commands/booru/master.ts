@@ -1,6 +1,6 @@
 import type { ExtendedClient } from '@pookiesoft/bongbot-core';
 import { SlashCommandBuilder } from 'discord.js';
-import type { ChatInputCommandInteraction } from 'discord.js';
+import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import type { HttpImageDownloader } from '../../helpers/image_downloader.js';
 import type { ImageProvider } from '../../providers/image_provider.js';
 import { Search } from './search.js';
@@ -18,6 +18,7 @@ export class Booru {
                         .setName('tags')
                         .setDescription('For example: shirakami_fubuki solo')
                         .setRequired(true)
+                        .setAutocomplete(true)
                         .setMinLength(1)
                         .setMaxLength(500)
                 )
@@ -34,6 +35,11 @@ export class Booru {
 
     async execute(interaction: ChatInputCommandInteraction, bot: ExtendedClient) {
         if (interaction.options.getSubcommand() === 'search') return this.search.execute(interaction, bot);
+        throw new Error('Unknown booru subcommand.');
+    }
+
+    async autocomplete(interaction: AutocompleteInteraction) {
+        if (interaction.options.getSubcommand() === 'search') return this.search.autocomplete(interaction);
         throw new Error('Unknown booru subcommand.');
     }
 }

@@ -46,7 +46,7 @@ npx vitest run tests/commands/commands.test.ts    # single file
 - Types: `ExtendedClient`, `Logger`, `BinaryResponse`, `ResponseType`, `Command`.
 
 ## Command contract
-Export `data` (SlashCommandBuilder), `execute(interaction, bot)`, `fullDesc` (`{ description, options }`). Optional `setupCollector(interaction, message)`.
+Export `data` (SlashCommandBuilder), `execute(interaction, bot)`, `fullDesc` (`{ description, options }`). Optional `setupCollector(interaction, message)` and `autocomplete(interaction)`. Core's handler drops autocomplete interactions, so `standalone.ts` routes them itself.
 Multi-command systems use master/subcommand (`src/commands/booru/master.ts`): master declares `.addSubcommand()` and routes from `execute()` to one class per file. Standard going forward.
 
 ## Tests

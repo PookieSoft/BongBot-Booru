@@ -1,6 +1,6 @@
 import type { Caller } from '@pookiesoft/bongbot-core';
 import { userFacingError } from '../helpers/user_facing_error.js';
-import type { ImagePost, ImageProvider, ImageSite } from './image_provider.js';
+import type { ImagePost, ImageProvider, ImageSite, TagSuggestion } from './image_provider.js';
 
 const endpoint = 'https://gelbooru.com';
 const imageHost = new URL(endpoint).hostname;
@@ -57,6 +57,17 @@ export class Gelbooru implements ImageProvider {
             postUrl: `${endpoint}/index.php?page=post&s=view&id=${post.id}`,
         };
     }
+
+    async suggest(term: string): Promise<TagSuggestion[]> {
+        const params = new URLSearchParams({ page: 'autocomplete2', term, type: 'tag_query', limit: '25' });
+        const response = await this.caller.get(endpoint, '/index.php', params.toString());
+        if (!Array.isArray(response)) return [];
+        return response.filter(isSuggestion).map((entry) => ({
+            tag: entry.value,
+            label: entry.label,
+            postCount: Number(entry.post_count),
+        }));
+    }
 }
 
 export function createGelbooru(caller: Pick<Caller, 'get'>, env: NodeJS.ProcessEnv, allowAiImages: boolean): Gelbooru {
@@ -80,6 +91,12 @@ export function createGelbooru(caller: Pick<Caller, 'get'>, env: NodeJS.ProcessE
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSuggestion(value: unknown): value is GelbooruSuggestion {
+    if (!isRecord(value) || typeof value.value !== 'string' || typeof value.label !== 'string') return false;
+    // NaN fails the comparison, so a missing or unreadable count drops the suggestion without an error path.
+    return Number(value.post_count) >= 0;
 }
 
 function isImage(value: unknown): value is GelbooruPost {
@@ -113,6 +130,12 @@ export interface GelbooruOptions {
     allowAiImages?: boolean;
     apiKey?: string;
     userId?: string;
+}
+
+interface GelbooruSuggestion {
+    value: string;
+    label: string;
+    post_count: string | number;
 }
 
 interface GelbooruPost {
