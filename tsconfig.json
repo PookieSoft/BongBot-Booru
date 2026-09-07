@@ -16,10 +16,7 @@
         "noImplicitReturns": false,
         "noFallthroughCasesInSwitch": true,
         "rootDir": "./src",
-        "types": ["jest", "node"],
-        "paths": {
-            "bongbot-core": ["./node_modules/bongbot-core/dist/index"]
-        }
+        "types": ["node"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]
