@@ -102,6 +102,18 @@ Each provider derives its allowed image host from a fixed API endpoint and valid
 
 To use another board, implement `ImageProvider` and pass it to `buildCommands` with a downloader. Composite bots can also construct `Gelbooru` or `Safebooru` directly with a caller and options, or use the exported `createGelbooru` and `createSafebooru` factories. `GelbooruOptions.sfw` defaults to `true`. Network dependencies use narrow types such as `Pick<Caller, 'get'>` and `Pick<HttpImageDownloader, 'download'>`, so tests can supply object literals.
 
+## Bring your own provider
+
+Composite bots can supply any object that implements `ImageProvider`:
+
+```ts
+const commands = buildCommands(bot, provider, downloader);
+```
+
+Your provider must expose a `site` name and referer, return an `ImagePost` or `null` from `search(tags)`, and return suggestions with `tag`, `label`, and `postCount` fields from `suggest(term)`. The search result's `imageUrl` must be an HTTPS image URL on the provider's board host (or one of its subdomains), with no credentials or custom port. `HttpImageDownloader` assumes the provider has already validated the URL.
+
+To add a board to this repository, fork it, add the provider and its tests under `src/providers/` and `tests/providers/`, then wire its factory into `src/config.ts`. Use the shared `isImage` and `isImageUrl` checks in `src/providers/post_validation.ts` for provider responses. Keep the provider's API and image hosts fixed in code; do not accept a server URL from a command or environment variable. The existing commands and downloader will then work with the new provider. Run `npm run typecheck`, `npm test`, and `npm run build` before using the fork.
+
 ## Tests and dependencies
 
 `npm test` runs Vitest once with V8 coverage and requires 100% coverage of statements, branches, functions, and lines. Coverage excludes `src/index.ts` and `src/providers/image_provider.ts`, which contain only re-exports and interfaces. TypeScript checks both, and command tests import through the public index.
