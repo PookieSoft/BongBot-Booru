@@ -1,5 +1,5 @@
 {
-    "name": "bongbot-booru",
+    "name": "@pookiesoft/bongbot-booru",
     "version": "0.1.0",
     "description": "BongBot Booru Image Board Integration",
     "main": "./dist/index.js",
@@ -10,7 +10,15 @@
             "import": "./dist/index.js"
         }
     },
+    "files": [
+        "dist",
+        "!dist/standalone.*"
+    ],
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com"
+    },
     "scripts": {
+        "prepublishOnly": "npm run build",
         "build": "node esbuild.config.mjs --minify && tsc --emitDeclarationOnly",
         "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
         "start": "node --enable-source-maps dist/standalone.js",
