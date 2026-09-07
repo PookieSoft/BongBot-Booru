@@ -11,7 +11,7 @@ vi.mock('@pookiesoft/bongbot-core', async (importOriginal) => {
 });
 
 const bot = { commands: new Collection(), user: null, version: 'test' } as unknown as ExtendedClient;
-const interaction = { options: { getSubcommand: vi.fn(() => 'search'), getString: vi.fn(() => 'solo') } } as unknown as ChatInputCommandInteraction;
+const interaction = { options: { getSubcommand: vi.fn(() => 'search'), getString: vi.fn((field: string) => (field === 'tag_1' ? 'solo' : null)) } } as unknown as ChatInputCommandInteraction;
 const post = { id: 1, imageUrl: 'https://img3.gelbooru.com/a.png', postUrl: 'https://gelbooru.com/index.php?id=1' };
 const site = { name: 'Gelbooru', referer: 'https://gelbooru.com/' };
 
@@ -39,7 +39,10 @@ it('registers all commands and metadata through Core', () => {
     const payload = buildCommands(bot, provider(), download());
     expect(payload.map((command) => command.name)).toEqual(['clown', 'fox', 'booru']);
     for (const command of bot.commands.values()) expect(command.fullDesc.description).toBeTruthy();
-    expect(payload[2].options[0].options[0]).toMatchObject({ name: 'tags', required: true, max_length: 500 });
+    const fields = payload[2].options[0].options;
+    expect(fields.map((field: { name: string }) => field.name)).toEqual(['tag_1', 'tag_2', 'tag_3', 'tag_4']);
+    expect(fields[0]).toMatchObject({ required: true, autocomplete: true, max_length: 100 });
+    expect(fields[3]).toMatchObject({ required: false, autocomplete: true, max_length: 100 });
 });
 
 it.each([['clown', 'omaru_polka'], ['fox', 'shirakami_fubuki']])('routes /%s to its character tag', async (name, tags) => {
@@ -55,7 +58,7 @@ it('routes custom search through the master and subcommand', async () => {
     const source = provider();
     const downloader = download();
     await new Booru(source, downloader).execute(interaction, bot);
-    expect(interaction.options.getString).toHaveBeenCalledWith('tags', true);
+    expect(interaction.options.getString).toHaveBeenCalledWith('tag_1');
     expect(source.search).toHaveBeenCalledWith('solo');
     expect(downloader.download).toHaveBeenCalledWith(post.imageUrl, site);
 });
@@ -100,39 +103,38 @@ function autocompleteInteraction(typed: string, subcommand = 'search') {
     } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
 }
 
-it('offers the literal tags behind what the user is typing', async () => {
+it('offers the literal tags for what the user is typing', async () => {
     const suggesting = provider();
-    suggesting.suggest.mockResolvedValue([
-        { tag: 'furina_(genshin_impact)', label: 'furina (genshin impact)', postCount: 13542 },
-        { tag: 'furina_(genshin_impact)_(cosplay)', label: 'furina (genshin impact) (cosplay)', postCount: 158 },
-    ]);
+    suggesting.suggest.mockResolvedValue(['furina_(genshin_impact)', 'furina_(genshin_impact)_(cosplay)']);
     const interaction = autocompleteInteraction('furina');
 
     await new Booru(suggesting, download()).autocomplete(interaction);
 
     expect(suggesting.suggest).toHaveBeenCalledWith('furina');
+    // The name is what Discord puts in the field, so it must be a tag a search accepts.
     expect(interaction.respond).toHaveBeenCalledWith([
-        { name: 'furina (genshin impact) (13,542 posts)', value: 'furina_(genshin_impact)' },
-        { name: 'furina (genshin impact) (cosplay) (158 posts)', value: 'furina_(genshin_impact)_(cosplay)' },
+        { name: 'furina_(genshin_impact)', value: 'furina_(genshin_impact)' },
+        { name: 'furina_(genshin_impact)_(cosplay)', value: 'furina_(genshin_impact)_(cosplay)' },
     ]);
 });
 
-it('completes only the word under the cursor and keeps the tags already typed', async () => {
-    const suggesting = provider();
-    suggesting.suggest.mockResolvedValue([{ tag: 'furina_(genshin_impact)', label: 'furina', postCount: 1 }]);
-    const interaction = autocompleteInteraction('solo blue_hair furi');
+it('joins the filled tag fields and leaves the empty ones out', async () => {
+    const searching = provider();
+    const filled = {
+        options: {
+            getSubcommand: vi.fn(() => 'search'),
+            getString: vi.fn((field: string) => ({ tag_1: 'furina_(genshin_impact)', tag_3: 'solo' })[field] ?? null),
+        },
+    } as unknown as ChatInputCommandInteraction;
 
-    await new Booru(suggesting, download()).autocomplete(interaction);
+    await new Booru(searching, download()).execute(filled, bot);
 
-    expect(suggesting.suggest).toHaveBeenCalledWith('furi');
-    expect(interaction.respond).toHaveBeenCalledWith([
-        { name: 'furina (1 posts)', value: 'solo blue_hair furina_(genshin_impact)' },
-    ]);
+    expect(searching.search).toHaveBeenCalledWith('furina_(genshin_impact) solo');
 });
 
-it('asks for nothing until a word is typed', async () => {
+it('asks for nothing until a field has something in it', async () => {
     const suggesting = provider();
-    const interaction = autocompleteInteraction('solo ');
+    const interaction = autocompleteInteraction('');
 
     await new Booru(suggesting, download()).autocomplete(interaction);
 
@@ -140,19 +142,14 @@ it('asks for nothing until a word is typed', async () => {
     expect(interaction.respond).toHaveBeenCalledWith([]);
 });
 
-it('drops a choice Discord would reject as too long', async () => {
+it('drops a tag Discord would reject as too long', async () => {
     const suggesting = provider();
-    suggesting.suggest.mockResolvedValue([
-        { tag: 'a'.repeat(60), label: 'long', postCount: 1 },
-        { tag: 'short', label: 'short', postCount: 1 },
-    ]);
-    const interaction = autocompleteInteraction(`${'b'.repeat(50)} lon`);
+    suggesting.suggest.mockResolvedValue(['a'.repeat(101), 'short']);
+    const interaction = autocompleteInteraction('sho');
 
     await new Booru(suggesting, download()).autocomplete(interaction);
 
-    expect(interaction.respond.mock.calls[0][0]).toEqual([
-        { name: 'short (1 posts)', value: `${'b'.repeat(50)} short` },
-    ]);
+    expect(interaction.respond.mock.calls[0][0]).toEqual([{ name: 'short', value: 'short' }]);
 });
 
 it('rejects autocomplete for a subcommand it does not know', async () => {
