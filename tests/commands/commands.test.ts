@@ -103,19 +103,37 @@ function autocompleteInteraction(typed: string, subcommand = 'search') {
     } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
 }
 
-it('offers the literal tags for what the user is typing', async () => {
+it('shows readable names and carries the literal tag as the value', async () => {
     const suggesting = provider();
-    suggesting.suggest.mockResolvedValue(['furina_(genshin_impact)', 'furina_(genshin_impact)_(cosplay)']);
+    suggesting.suggest.mockResolvedValue([
+        { tag: 'furina_(genshin_impact)', label: 'furina (genshin impact)', postCount: 13542 },
+        { tag: 'furina_(genshin_impact)_(cosplay)', label: 'furina (genshin impact) (cosplay)', postCount: 158 },
+    ]);
     const interaction = autocompleteInteraction('furina');
 
     await new Booru(suggesting, download()).autocomplete(interaction);
 
     expect(suggesting.suggest).toHaveBeenCalledWith('furina');
-    // The name is what Discord puts in the field, so it must be a tag a search accepts.
     expect(interaction.respond).toHaveBeenCalledWith([
-        { name: 'furina_(genshin_impact)', value: 'furina_(genshin_impact)' },
-        { name: 'furina_(genshin_impact)_(cosplay)', value: 'furina_(genshin_impact)_(cosplay)' },
+        { name: 'furina (genshin impact) (13542)', value: 'furina_(genshin_impact)' },
+        { name: 'furina (genshin impact) (cosplay) (158)', value: 'furina_(genshin_impact)_(cosplay)' },
     ]);
+});
+
+it('puts the underscores back, whether Discord sent the name or the value', async () => {
+    const searching = provider();
+    const filled = {
+        options: {
+            getSubcommand: vi.fn(() => 'search'),
+            getString: vi.fn(
+                (field: string) => ({ tag_1: 'furina (genshin impact)', tag_2: '  hatsune  miku  ' })[field] ?? null
+            ),
+        },
+    } as unknown as ChatInputCommandInteraction;
+
+    await new Booru(searching, download()).execute(filled, bot);
+
+    expect(searching.search).toHaveBeenCalledWith('furina_(genshin_impact) hatsune_miku');
 });
 
 it('joins the filled tag fields and leaves the empty ones out', async () => {
@@ -144,12 +162,15 @@ it('asks for nothing until a field has something in it', async () => {
 
 it('drops a tag Discord would reject as too long', async () => {
     const suggesting = provider();
-    suggesting.suggest.mockResolvedValue(['a'.repeat(101), 'short']);
+    suggesting.suggest.mockResolvedValue([
+        { tag: 'a'.repeat(101), label: 'a'.repeat(101), postCount: 1 },
+        { tag: 'short', label: 'short', postCount: 1 },
+    ]);
     const interaction = autocompleteInteraction('sho');
 
     await new Booru(suggesting, download()).autocomplete(interaction);
 
-    expect(interaction.respond.mock.calls[0][0]).toEqual([{ name: 'short', value: 'short' }]);
+    expect(interaction.respond.mock.calls[0][0]).toEqual([{ name: 'short (1)', value: 'short' }]);
 });
 
 it('rejects autocomplete for a subcommand it does not know', async () => {

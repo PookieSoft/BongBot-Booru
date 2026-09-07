@@ -1,6 +1,6 @@
 import type { Caller } from '@pookiesoft/bongbot-core';
 import { userFacingError } from '../helpers/user_facing_error.js';
-import type { ImagePost, ImageProvider, ImageSite } from './image_provider.js';
+import type { ImagePost, ImageProvider, ImageSite, TagSuggestion } from './image_provider.js';
 
 const endpoint = 'https://gelbooru.com';
 const imageHost = new URL(endpoint).hostname;
@@ -58,12 +58,16 @@ export class Gelbooru implements ImageProvider {
         };
     }
 
-    async suggest(term: string): Promise<string[]> {
+    async suggest(term: string): Promise<TagSuggestion[]> {
         const params = new URLSearchParams({ page: 'autocomplete2', term, type: 'tag_query', limit: '25' });
         const response = await this.caller.get(endpoint, '/index.php', params.toString());
         if (!Array.isArray(response)) return [];
         // Gelbooru orders these by post count, so the most used tag arrives first.
-        return response.filter(isSuggestion).map((entry) => entry.value);
+        return response.filter(isSuggestion).map((entry) => ({
+            tag: entry.value,
+            label: entry.label,
+            postCount: Number(entry.post_count),
+        }));
     }
 }
 
@@ -91,7 +95,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isSuggestion(value: unknown): value is GelbooruSuggestion {
-    return isRecord(value) && typeof value.value === 'string';
+    if (!isRecord(value) || typeof value.value !== 'string' || typeof value.label !== 'string') return false;
+    return Number(value.post_count) >= 0;
 }
 
 function isImage(value: unknown): value is GelbooruPost {
@@ -129,6 +134,8 @@ export interface GelbooruOptions {
 
 interface GelbooruSuggestion {
     value: string;
+    label: string;
+    post_count: string | number;
 }
 
 interface GelbooruPost {
