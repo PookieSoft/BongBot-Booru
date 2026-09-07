@@ -34,6 +34,7 @@ npx vitest run tests/commands/commands.test.ts    # single file
 | `src/providers/` | board adapters plus the `ImageProvider` contract |
 | `src/helpers/image_downloader.ts` | image bytes and attachment name |
 | `src/helpers/user_facing_error.ts` | safe message for the embed, real cause on the stack |
+| `src/helpers/retrying_caller.ts` | repeats a `get` that got no response at all |
 | `tests/` | mirrors `src/`; no setup file, no MSW |
 
 ## Core API (import, never re-implement)
