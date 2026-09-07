@@ -12,7 +12,7 @@ A standalone Discord bot that searches Safebooru or Gelbooru, replacing BongBot'
 
 The bot defaults to Safebooru for searches and autocomplete. Set `IMAGE_PROVIDER=safebooru` to choose it explicitly. Safebooru needs no credentials, and this provider never contacts Gelbooru.
 
-Set `IMAGE_PROVIDER=gelbooru` to use Gelbooru for searches and autocomplete. Gelbooru defaults to `GELBOORU_SFW=true`: it adds `rating:general` to searches and filters returned posts to that rating. Set `GELBOORU_SFW=false` to allow all four ratings, including explicit content. The provider applies to every command and channel. Any other `IMAGE_PROVIDER` value stops startup with an error.
+Set `IMAGE_PROVIDER=gelbooru` to use Gelbooru for searches and autocomplete. Gelbooru defaults to `GELBOORU_SFW=true`: it adds `rating:general` to searches and filters returned posts to that rating. Set `GELBOORU_SFW=false` to allow all four ratings, including explicit content. The provider applies to every command and channel. Any other `IMAGE_PROVIDER` value stops startup with an error. Gelbooru rating filters depend on correct tagging and cannot guarantee that every image suits every audience.
 
 `GELBOORU_SFW` controls the Gelbooru rating filter. When `IMAGE_PROVIDER` is unset, the legacy value `false` selects Gelbooru; every other value selects Safebooru. This comparison ignores surrounding whitespace and letter case. An explicit `IMAGE_PROVIDER` takes precedence for board selection; `GELBOORU_SFW` still controls filtering when Gelbooru is selected. Existing SFW deployments therefore use Safebooru instead of filtered Gelbooru.
 

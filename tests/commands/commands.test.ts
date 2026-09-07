@@ -3,7 +3,7 @@ import { Collection } from 'discord.js';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import type { ExtendedClient } from '@pookiesoft/bongbot-core';
 import { buildError } from '@pookiesoft/bongbot-core';
-import { Booru, ImageCommand, buildCommands } from '../../src/index.js';
+import { Booru, ImageCommand, buildCommands, createProvider, HttpImageDownloader } from '../../src/index.js';
 
 vi.mock('@pookiesoft/bongbot-core', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@pookiesoft/bongbot-core')>();
@@ -11,7 +11,12 @@ vi.mock('@pookiesoft/bongbot-core', async (importOriginal) => {
 });
 
 const bot = { commands: new Collection(), user: null, version: 'test' } as unknown as ExtendedClient;
-const interaction = { options: { getSubcommand: vi.fn(() => 'search'), getString: vi.fn((field: string) => (field === 'tag_1' ? 'solo' : null)) } } as unknown as ChatInputCommandInteraction;
+const interaction = {
+    options: {
+        getSubcommand: vi.fn(() => 'search'),
+        getString: vi.fn((field: string) => (field === 'tag_1' ? 'solo' : null)),
+    },
+} as unknown as ChatInputCommandInteraction;
 const post = { id: 1, imageUrl: 'https://img3.gelbooru.com/a.png', postUrl: 'https://gelbooru.com/index.php?id=1' };
 const site = { name: 'Gelbooru', referer: 'https://gelbooru.com/' };
 
@@ -45,12 +50,19 @@ it('registers all commands and metadata through Core', () => {
     expect(fields[3]).toMatchObject({ required: false, autocomplete: true, max_length: 100 });
 });
 
-it.each([['clown', 'omaru_polka'], ['fox', 'shirakami_fubuki']])('routes /%s to its character tag', async (name, tags) => {
+it.each([
+    ['clown', 'omaru_polka'],
+    ['fox', 'shirakami_fubuki'],
+])('routes /%s to its character tag', async (name, tags) => {
     const source = provider();
     buildCommands(bot, source, download());
     const result = await bot.commands.get(name).execute(interaction, bot);
     expect(source.search).toHaveBeenCalledWith(tags);
-    expect(result.embeds[0].toJSON()).toMatchObject({ title: 'View on Gelbooru', url: post.postUrl, image: { url: 'attachment://gelbooru-image.png' } });
+    expect(result.embeds[0].toJSON()).toMatchObject({
+        title: 'View on Gelbooru',
+        url: post.postUrl,
+        image: { url: 'attachment://gelbooru-image.png' },
+    });
     expect(result.files).toHaveLength(1);
 });
 
@@ -71,14 +83,26 @@ it('rejects unknown subcommands', async () => {
 it('downloads from the provider site and titles the embed with its name', async () => {
     const mirror = { name: 'Safebooru Mirror', referer: 'https://safebooru.org/' };
     const downloader = download({ data: Buffer.from([1]), filename: 'safebooru-mirror-image.png' });
-    const result = await new ImageCommand('fox', 'Fox image', 'shirakami_fubuki', provider(post, mirror), downloader).execute(interaction, bot) as unknown as EmbedResult;
+    const result = (await new ImageCommand(
+        'fox',
+        'Fox image',
+        'shirakami_fubuki',
+        provider(post, mirror),
+        downloader
+    ).execute(interaction, bot)) as unknown as EmbedResult;
     expect(downloader.download).toHaveBeenCalledWith(post.imageUrl, mirror);
-    expect(result.embeds[0].toJSON()).toMatchObject({ title: 'View on Safebooru Mirror', image: { url: 'attachment://safebooru-mirror-image.png' } });
+    expect(result.embeds[0].toJSON()).toMatchObject({
+        title: 'View on Safebooru Mirror',
+        image: { url: 'attachment://safebooru-mirror-image.png' },
+    });
 });
 
 it('returns a useful empty-result message', async () => {
     const command = new ImageCommand('fox', 'Fox image', 'shirakami_fubuki', provider(null), download());
-    expect(await command.execute(interaction, bot)).toEqual({ content: 'No images found for those tags.', allowedMentions: { parse: [] } });
+    expect(await command.execute(interaction, bot)).toEqual({
+        content: 'No images found for those tags.',
+        allowedMentions: { parse: [] },
+    });
 });
 
 it('reports a failed download through the shared error builder', async () => {
@@ -180,4 +204,30 @@ it('rejects autocomplete for a subcommand it does not know', async () => {
     await expect(new Booru(provider(), download()).autocomplete(interaction)).rejects.toThrow(
         'Unknown booru subcommand.'
     );
+});
+
+it('renders a Safebooru result through the provider and downloader', async () => {
+    const imageUrl = 'https://safebooru.org/images/a.png';
+    const get = vi
+        .fn()
+        .mockResolvedValueOnce([{ id: 42, rating: 'general', file_url: imageUrl }])
+        .mockResolvedValueOnce({ data: Buffer.from([1, 2, 3]), contentType: 'image/png' });
+    const source = createProvider({ get }, { IMAGE_PROVIDER: 'safebooru' });
+    const command = new ImageCommand('fox', 'Fox image', 'shirakami_fubuki', source, new HttpImageDownloader({ get }));
+
+    const result = (await command.execute(interaction, bot)) as unknown as EmbedResult;
+
+    expect(result.embeds[0].toJSON()).toMatchObject({
+        title: 'View on Safebooru',
+        url: 'https://safebooru.org/index.php?page=post&s=view&id=42',
+        image: { url: 'attachment://safebooru-image.png' },
+    });
+    expect(result.files).toHaveLength(1);
+    expect(get.mock.calls[1]).toEqual([
+        imageUrl,
+        null,
+        null,
+        expect.objectContaining({ Referer: 'https://safebooru.org/' }),
+        'binary',
+    ]);
 });
