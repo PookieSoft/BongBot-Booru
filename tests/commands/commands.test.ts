@@ -120,20 +120,22 @@ it('shows readable names and carries the literal tag as the value', async () => 
     ]);
 });
 
-it('puts the underscores back, whether Discord sent the name or the value', async () => {
+it.each([
+    ['solo blue_hair', 'a list of tags'],
+    ['furina (genshin impact) (13542)', 'a label Discord may have sent in place of the value'],
+])('refuses %s in one field, being %s', async (crowded) => {
     const searching = provider();
     const filled = {
         options: {
             getSubcommand: vi.fn(() => 'search'),
-            getString: vi.fn(
-                (field: string) => ({ tag_1: 'furina (genshin impact)', tag_2: '  hatsune  miku  ' })[field] ?? null
-            ),
+            getString: vi.fn((field: string) => ({ tag_1: 'smile', tag_2: crowded })[field] ?? null),
         },
     } as unknown as ChatInputCommandInteraction;
 
-    await new Booru(searching, download()).execute(filled, bot);
+    expect(await new Booru(searching, download()).execute(filled, bot)).toEqual({ content: 'Error', isError: true });
 
-    expect(searching.search).toHaveBeenCalledWith('furina_(genshin_impact) hatsune_miku');
+    expect(searching.search).not.toHaveBeenCalled();
+    expect(vi.mocked(buildError).mock.calls[0][1]).toEqual(new Error('Tag fields only support 1 tag per field.'));
 });
 
 it('joins the filled tag fields and leaves the empty ones out', async () => {

@@ -1,3 +1,4 @@
+import { buildError } from '@pookiesoft/bongbot-core';
 import type { ExtendedClient } from '@pookiesoft/bongbot-core';
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from 'discord.js';
 import type { HttpImageDownloader } from '../../helpers/image_downloader.js';
@@ -16,9 +17,15 @@ export class Search {
     ) {}
 
     async execute(interaction: ChatInputCommandInteraction, bot: ExtendedClient) {
-        const tags = TAG_FIELDS.flatMap((field) => interaction.options.getString(field) ?? [])
-            .map((tag) => tag.trim().replace(/\s+/g, '_'))
-            .join(' ');
+        const filled = TAG_FIELDS.map((field) => ({
+            field,
+            tag: interaction.options.getString(field)?.trim() ?? '',
+        })).filter((entry) => entry.tag);
+        const crowded = filled.find((entry) => /\s/.test(entry.tag));
+        if (crowded) {
+            return buildError(interaction, new Error(`Tag fields only support 1 tag per field.`));
+        }
+        const tags = filled.map((entry) => entry.tag).join(' ');
         return imageResponse(interaction, bot, this.provider, tags, this.downloader);
     }
 
