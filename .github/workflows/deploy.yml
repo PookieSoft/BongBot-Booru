@@ -1,7 +1,6 @@
 name: Create Release and Deploy BongBot-Booru
 
-# Thin caller for PookieSoft/workflows release. Booru is a runtime bot, not a
-# published library — publish-package is false.
+# Builds the Docker image and publishes the library to GitHub Packages.
 
 on:
     push:
@@ -10,7 +9,7 @@ on:
 permissions:
     contents: write
     pull-requests: read
-    packages: read
+    packages: write
 
 jobs:
     release:
@@ -19,7 +18,7 @@ jobs:
             runtime: node
             build-docker: true
             docker-image-name: bongbot-booru
-            publish-package: false
+            publish-package: true
             codecov-slug: PookieSoft/BongBot-Booru
             environment: Prod
         secrets: inherit
